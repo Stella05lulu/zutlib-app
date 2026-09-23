@@ -38,7 +38,7 @@ extension BorrowStatusX on BorrowStatus {
         BorrowStatus.collected => 'You have this item.',
         BorrowStatus.returned => 'Returned. Nothing outstanding.',
         BorrowStatus.overdue => 'This item is past its due date. Please return it.',
-        BorrowStatus.cancelled => 'You cancelled this request.',
+        BorrowStatus.cancelled => 'This request was closed. Nothing is outstanding.',
       };
 
   Color get fg => switch (this) {

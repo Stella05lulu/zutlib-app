@@ -21,6 +21,7 @@ class _UploadResourceScreenState extends ConsumerState<UploadResourceScreen> {
   final _form = GlobalKey<FormState>();
   final _title = TextEditingController();
   String? _department;
+  int? _semester;
   final _course = TextEditingController();
   final _year = TextEditingController(text: '${DateTime.now().year}');
   final _description = TextEditingController();
@@ -43,7 +44,8 @@ class _UploadResourceScreenState extends ConsumerState<UploadResourceScreen> {
   Future<void> _pickFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['pdf', 'doc', 'docx'],
+      // PDF only: it opens the same way on every phone and browser.
+      allowedExtensions: ['pdf'],
       withData: true,
     );
     if (result != null && result.files.isNotEmpty) {
@@ -71,6 +73,7 @@ class _UploadResourceScreenState extends ConsumerState<UploadResourceScreen> {
         department: _department!,
         courseCode: _course.text,
         academicYear: int.parse(_year.text.trim()),
+        semester: _semester,
         description: _description.text.isEmpty ? null : _description.text,
         fileBytes: _file?.bytes,
         fileName: _file?.name,
@@ -79,6 +82,7 @@ class _UploadResourceScreenState extends ConsumerState<UploadResourceScreen> {
         totalCopies: _isPhysical ? (int.tryParse(_copies.text.trim()) ?? 1) : 0,
       );
       ref.invalidate(searchProvider);
+      ref.invalidate(staffResourcesProvider);
       ref.invalidate(facetsProvider);
       ref.invalidate(overviewProvider);
       if (!mounted) return;
@@ -139,23 +143,57 @@ class _UploadResourceScreenState extends ConsumerState<UploadResourceScreen> {
                       child: TextFormField(
                         controller: _course,
                         textCapitalization: TextCapitalization.characters,
-                        decoration: const InputDecoration(labelText: 'Course code'),
-                        validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'Required' : null,
+                        decoration: const InputDecoration(
+                            labelText: 'Course code', hintText: 'e.g. EEE 2011'),
+                        validator: (v) {
+                          final t = v?.trim() ?? '';
+                          if (t.isEmpty) return 'Required';
+                          if (!RegExp(r'^[A-Za-z]{2,5}[\s._-]*\d{3,4}$')
+                              .hasMatch(t)) {
+                            return 'Letters then numbers, as on the paper';
+                          }
+                          return null;
+                        },
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: Insets.md),
-                TextFormField(
-                  controller: _year,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Academic year'),
-                  validator: (v) {
-                    final n = int.tryParse(v?.trim() ?? '');
-                    if (n == null || n < 1990 || n > 2100) return 'Enter a year';
-                    return null;
-                  },
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _year,
+                        keyboardType: TextInputType.number,
+                        decoration:
+                            const InputDecoration(labelText: 'Academic year'),
+                        validator: (v) {
+                          final n = int.tryParse(v?.trim() ?? '');
+                          if (n == null || n < 1990 || n > 2100) {
+                            return 'Enter a year';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: Insets.sm),
+                    Expanded(
+                      child: DropdownButtonFormField<int?>(
+                        initialValue: _semester,
+                        decoration: const InputDecoration(
+                          labelText: 'Semester',
+                          helperText: 'Leave blank for tests and deferred exams',
+                        ),
+                        items: const [
+                          DropdownMenuItem<int?>(value: null, child: Text('Not stated')),
+                          DropdownMenuItem<int?>(value: 1, child: Text('Semester 1 (June)')),
+                          DropdownMenuItem<int?>(value: 2, child: Text('Semester 2 (December)')),
+                        ],
+                        onChanged: (v) => setState(() => _semester = v),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: Insets.md),
                 TextFormField(
@@ -181,7 +219,7 @@ class _UploadResourceScreenState extends ConsumerState<UploadResourceScreen> {
                       leading: const Icon(Icons.attach_file),
                       title: Text(_file?.name ?? 'Attach a document'),
                       subtitle: Text(_file == null
-                          ? 'PDF or Word'
+                          ? 'PDF only'
                           : '${((_file!.size) / 1024).round()} KB'),
                       trailing: TextButton(
                         onPressed: _pickFile,

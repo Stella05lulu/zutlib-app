@@ -1,12 +1,22 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/failure.dart';
 import '../core/supabase.dart';
 import '../models/profile.dart';
 
-/// Deep links the emails send people back to. Both must be listed under
-/// Supabase → Authentication → URL Configuration → Redirect URLs.
-const kResetPasswordRedirect = 'zutlib://reset-password';
-const kLoginCallbackRedirect = 'zutlib://login-callback';
+/// Where the links in account emails send people back to.
+///
+/// On a phone they reopen the app through the zutlib:// scheme. A browser
+/// cannot open that scheme, so on the web the link returns to the address
+/// the app is being served from instead. Every one of these must be listed
+/// under Supabase -> Authentication -> URL Configuration -> Redirect URLs:
+///   zutlib://login-callback
+///   zutlib://reset-password
+///   http://localhost:5000/**   (flutter run -d chrome --web-port 5000)
+String get kResetPasswordRedirect =>
+    kIsWeb ? Uri.base.origin : 'zutlib://reset-password';
+String get kLoginCallbackRedirect =>
+    kIsWeb ? Uri.base.origin : 'zutlib://login-callback';
 
 class AuthRepository {
   const AuthRepository();
@@ -28,6 +38,7 @@ class AuthRepository {
         'surname': surname,
         'email': email,
         'password': password,
+        'redirect_to': kLoginCallbackRedirect,
       });
       final data = res.data;
       if (data is Map && data['message'] is String) {

@@ -22,6 +22,7 @@ import '../ui/screens/staff/upload_resource_screen.dart';
 import '../ui/screens/student/borrow_request_screen.dart';
 import '../ui/screens/student/browse_screen.dart';
 import '../ui/screens/student/my_borrowing_screen.dart';
+import '../ui/screens/student/notifications_screen.dart';
 import '../ui/screens/student/resource_detail_screen.dart';
 import '../ui/widgets/shell.dart';
 import 'supabase.dart';
@@ -87,6 +88,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(path: '/browse', builder: (_, __) => const BrowseScreen()),
           GoRoute(path: '/borrowing', builder: (_, __) => const MyBorrowingScreen()),
+          GoRoute(path: '/updates', builder: (_, __) => const NotificationsScreen()),
           GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
           GoRoute(path: '/staff/requests', builder: (_, __) => const RequestQueueScreen()),
           GoRoute(path: '/staff/resources', builder: (_, __) => const ResourceManagerScreen()),

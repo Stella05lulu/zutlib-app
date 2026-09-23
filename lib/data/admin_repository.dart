@@ -1,4 +1,4 @@
-import 'dart:convert';
+import '../core/csv.dart';
 import '../core/failure.dart';
 import '../core/supabase.dart';
 import '../models/profile.dart';
@@ -50,10 +50,10 @@ class AdminRepository {
   /// Import is additive and idempotent: re-importing a roll updates the
   /// details of existing records without disturbing the claimed flag.
   Future<int> importRoll(String csv) async {
-    final lines = const LineSplitter().convert(csv).where((l) => l.trim().isNotEmpty).toList();
-    if (lines.length < 2) throw const Failure('That file has no rows under its header.');
+    final rows = parseCsv(csv);
+    if (rows.length < 2) throw const Failure('That file has no rows under its header.');
 
-    final header = lines.first.split(',').map((h) => h.trim().toLowerCase()).toList();
+    final header = rows.first.map((h) => h.trim().toLowerCase()).toList();
     int col(String name) {
       final i = header.indexOf(name);
       if (i < 0) throw Failure('The file is missing a "$name" column.');
@@ -68,8 +68,8 @@ class AdminRepository {
     final iFirst = header.indexOf('first_name');
 
     final payload = <Map<String, dynamic>>[];
-    for (var i = 1; i < lines.length; i++) {
-      final cells = lines[i].split(',');
+    for (var i = 1; i < rows.length; i++) {
+      final cells = rows[i];
       if (cells.length < header.length) continue;
       payload.add({
         'student_number': cells[iNum].trim(),

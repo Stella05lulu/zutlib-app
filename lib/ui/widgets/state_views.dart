@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme.dart';
+import 'common.dart';
 
 /// Every screen shows one of four states, so a person is never looking at a
 /// blank rectangle wondering whether it is broken or just empty.
@@ -26,17 +27,84 @@ class AsyncView<T> extends StatelessWidget {
       );
 }
 
+/// Placeholder rows shaped like the list that is about to arrive, so the
+/// layout does not jump when it does.
 class _Loading extends StatelessWidget {
   const _Loading();
   @override
-  Widget build(BuildContext context) => const Center(
-        child: Padding(
-          padding: EdgeInsets.all(Insets.xl),
-          child: SizedBox(
-            width: 26, height: 26,
-            child: CircularProgressIndicator(strokeWidth: 2.4),
+  Widget build(BuildContext context) => SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(Insets.md),
+        child: Readable(
+          child: Column(
+            children: [
+              for (var i = 0; i < 4; i++)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: Insets.sm),
+                  child: _SkeletonRow(),
+                ),
+            ],
           ),
         ),
+      );
+}
+
+class _SkeletonRow extends StatelessWidget {
+  const _SkeletonRow();
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(Insets.md),
+        decoration: BoxDecoration(
+          color: Palette.surface,
+          borderRadius: BorderRadius.circular(Corners.card),
+          border: Border.all(color: Palette.line),
+        ),
+        child: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SkeletonBox(width: 220, height: 16),
+            SizedBox(height: 10),
+            SkeletonBox(width: 140, height: 12),
+            SizedBox(height: 10),
+            SkeletonBox(height: 12),
+          ],
+        ),
+      );
+}
+
+/// A flat grey block standing in for text or an image while loading.
+class SkeletonBox extends StatelessWidget {
+  const SkeletonBox({super.key, this.width, required this.height, this.radius = 6});
+  final double? width;
+  final double height;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: width ?? double.infinity,
+        height: height,
+        decoration: BoxDecoration(
+          color: Palette.neutralWash,
+          borderRadius: BorderRadius.circular(radius),
+        ),
+      );
+}
+
+/// Placeholder shaped like a ResourceGridCard.
+class SkeletonResourceCard extends StatelessWidget {
+  const SkeletonResourceCard({super.key});
+  @override
+  Widget build(BuildContext context) => const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SkeletonBox(height: 118, radius: 14),
+          SizedBox(height: 12),
+          SkeletonBox(height: 15),
+          SizedBox(height: 6),
+          SkeletonBox(width: 160, height: 15),
+          SizedBox(height: 10),
+          SkeletonBox(width: 120, height: 11),
+        ],
       );
 }
 

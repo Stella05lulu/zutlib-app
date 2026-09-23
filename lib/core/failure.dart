@@ -41,6 +41,17 @@ class Failure implements Exception {
       if (code == '23514') {
         return const Failure('The database refused that change because it breaks a rule.');
       }
+      if (code == '23503') {
+        return const Failure(
+            'This is still referenced elsewhere, for example by borrowing '
+            'history, so it cannot be removed.');
+      }
+      // Rules the database explains in its own words (see 0009_hardening).
+      if (code == '42501' &&
+          (error.message.startsWith('You cannot') ||
+              error.message.startsWith('At least one'))) {
+        return Failure(error.message);
+      }
       if (code == '42501' || code.startsWith('PGRST')) {
         return const Failure('You do not have access to that.');
       }

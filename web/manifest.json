@@ -1,11 +1,11 @@
 {
-    "name": "zutlib",
-    "short_name": "zutlib",
+    "name": "ZutLib",
+    "short_name": "ZutLib",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Past papers, notes and library borrowing for ZUT.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

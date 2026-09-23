@@ -39,8 +39,9 @@ class _RequestDetailScreenState extends ConsumerState<RequestDetailScreen> {
       ref.invalidate(_requestProvider(widget.requestId));
       if (!mounted) return;
       showMessage(context, switch (action) {
-        'approve' => 'Approved. A copy is reserved and the student has been emailed.',
-        'reject' => 'Rejected. The student has been emailed the reason.',
+        'approve' => 'Approved. A copy is reserved and the student has been notified in the app.',
+        'reject' => 'Rejected. The student can see the reason in the app.',
+        'cancel' => 'Closed. The copy is back on the shelf.',
         'collect' => 'Collection recorded. The due date is set.',
         'return' => 'Return recorded. The copy is back on the shelf.',
         _ => 'Updated.',
@@ -62,8 +63,7 @@ class _RequestDetailScreenState extends ConsumerState<RequestDetailScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('The student will see this reason in the app and in '
-                'their email.'),
+            const Text('The student will see this reason in the app.'),
             const SizedBox(height: Insets.md),
             TextField(
               controller: controller,
@@ -88,6 +88,28 @@ class _RequestDetailScreenState extends ConsumerState<RequestDetailScreen> {
     );
     if (reason == null || reason.isEmpty) return;
     await _act('reject', reason: reason);
+  }
+
+  /// The student never came for an approved copy.
+  Future<void> _notCollected() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Close this request?'),
+        content: const Text('Use this when the student has not collected the '
+            'copy. The request is closed and the copy goes back on the '
+            'shelf for someone else.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Back')),
+          FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Close request')),
+        ],
+      ),
+    );
+    if (ok == true) await _act('cancel');
   }
 
   @override
@@ -226,6 +248,12 @@ class _RequestDetailScreenState extends ConsumerState<RequestDetailScreen> {
               onPressed: () => _act('collect'),
               icon: const Icon(Icons.outbound_outlined),
               label: const Text('Record collection'),
+            ),
+            const SizedBox(height: Insets.sm),
+            OutlinedButton.icon(
+              onPressed: _notCollected,
+              icon: const Icon(Icons.event_busy_outlined),
+              label: const Text('Student did not collect'),
             ),
           ],
         BorrowStatus.collected || BorrowStatus.overdue => [

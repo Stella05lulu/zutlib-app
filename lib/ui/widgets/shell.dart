@@ -16,6 +16,7 @@ class NavTarget {
 const _studentNav = [
   NavTarget('/browse', 'Explore', Icons.explore_outlined, Icons.explore_rounded),
   NavTarget('/borrowing', 'My borrowing', Icons.auto_stories_outlined, Icons.auto_stories_rounded),
+  NavTarget('/updates', 'Updates', Icons.notifications_none_rounded, Icons.notifications_rounded),
   NavTarget('/profile', 'Account', Icons.account_circle_outlined, Icons.account_circle_rounded),
 ];
 
@@ -42,11 +43,22 @@ class AppShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(profileProvider).value;
-    final targets = switch (profile?.role) {
+    final roleTargets = switch (profile?.role) {
       UserRole.admin => _adminNav,
       UserRole.librarian => _staffNav,
       _ => _studentNav,
     };
+    // The Updates tab changes icon and shows a count while anything is unread.
+    final unread = ref.watch(unreadCountProvider);
+    final targets = [
+      for (final t in roleTargets)
+        if (t.path == '/updates' && unread > 0)
+          NavTarget(t.path, 'Updates ($unread new)',
+              Icons.notifications_active_outlined,
+              Icons.notifications_active_rounded)
+        else
+          t,
+    ];
 
     final location = GoRouterState.of(context).uri.path;
     var index = targets.indexWhere((t) => location.startsWith(t.path));

@@ -34,6 +34,13 @@ Deno.serve(async (req) => {
   const surname       = (body.surname ?? '').trim()
   const email         = (body.email ?? '').trim().toLowerCase()
   const password      = body.password ?? ''
+  // Where the verification link should return to: the Android app by
+  // default, or the web app's own address. Supabase still rejects any
+  // address that is not on the project's Redirect URLs list.
+  const redirectTo    = typeof body.redirect_to === 'string' &&
+      /^(zutlib:\/\/|https?:\/\/)/.test(body.redirect_to)
+    ? body.redirect_to
+    : 'zutlib://login-callback'
 
   if (!studentNumber || !surname || !email || !password) {
     return fail('missing_fields', 'Student number, surname, email and password are all required.')
@@ -97,13 +104,18 @@ Deno.serve(async (req) => {
 
   // Claim the roll record. The partial unique index on claimed_by means a
   // simultaneous second attempt against the same record loses here.
-  const { error: claimErr } = await admin
+  // An update that matches no row is not an error, so ask for the updated
+  // row back and treat "nothing came back" as losing the race. Without
+  // this, the loser would carry on and its clean-up would un-claim the
+  // winner's record.
+  const { data: claimed, error: claimErr } = await admin
     .from('roll')
     .update({ claimed: true, claimed_by: uid, claimed_at: new Date().toISOString() })
     .eq('student_number', studentNumber)
     .eq('claimed', false)
+    .select('student_number')
 
-  if (claimErr) {
+  if (claimErr || !claimed || claimed.length === 0) {
     await admin.auth.admin.deleteUser(uid)
     return fail('already_claimed',
       'That student number was claimed a moment ago. If this was not you, contact the library.')
@@ -123,7 +135,7 @@ Deno.serve(async (req) => {
     // Unwind so the roll record is not stranded as claimed.
     await admin.from('roll').update({
       claimed: false, claimed_by: null, claimed_at: null,
-    }).eq('student_number', studentNumber)
+    }).eq('student_number', studentNumber).eq('claimed_by', uid)
     await admin.auth.admin.deleteUser(uid)
     return fail('server_error', 'Could not finish setting up the account.', 500)
   }
@@ -132,7 +144,7 @@ Deno.serve(async (req) => {
   const { error: mailErr } = await admin.auth.resend({
     type: 'signup',
     email,
-    options: { emailRedirectTo: 'zutlib://login-callback' },
+    options: { emailRedirectTo: redirectTo },
   })
   if (mailErr) console.error('verification email failed:', mailErr.message)
 

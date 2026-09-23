@@ -128,9 +128,21 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
               ...results.when<List<Widget>>(
                 skipLoadingOnReload: true,
                 loading: () => [
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(child: CircularProgressIndicator()),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(
+                        Insets.md, Insets.lg, Insets.md, Insets.md),
+                    sliver: SliverGrid(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: catalogGridColumns(width),
+                        mainAxisSpacing: Insets.lg,
+                        crossAxisSpacing: Insets.md,
+                        mainAxisExtent: 250,
+                      ),
+                      delegate: SliverChildBuilderDelegate(
+                        (_, __) => const SkeletonResourceCard(),
+                        childCount: catalogGridColumns(width) * 2,
+                      ),
+                    ),
                   ),
                 ],
                 error: (e, _) => [

@@ -34,7 +34,7 @@ class _RollScreenState extends ConsumerState<RollScreen> {
 
     setState(() => _importing = true);
     try {
-      final count = await adminRepo.importRoll(utf8.decode(bytes));
+      final count = await adminRepo.importRoll(utf8.decode(bytes, allowMalformed: true));
       ref.invalidate(rollProvider);
       if (mounted) showMessage(context, 'Imported $count records.');
     } on Failure catch (f) {

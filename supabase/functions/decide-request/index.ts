@@ -13,7 +13,7 @@ const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-type Action = 'review' | 'approve' | 'reject' | 'collect' | 'return';
+type Action = 'review' | 'approve' | 'reject' | 'collect' | 'return' | 'cancel';
 
 // The only transitions that exist.
 const LEGAL: Record<Action, string[]> = {
@@ -22,6 +22,9 @@ const LEGAL: Record<Action, string[]> = {
   reject:  ['submitted', 'under_review'],
   collect: ['approved'],
   return:  ['collected'],
+  // The student never came to collect an approved copy. Frees the copy
+  // so it does not stay reserved forever.
+  cancel:  ['approved'],
 }
 
 const DEFAULT_LOAN_DAYS = 14
@@ -118,7 +121,10 @@ Deno.serve(async (req) => {
   } else if (action === 'return') {
     patch.status = 'returned'
     patch.returned_at = now
-    await admin.rpc('release_copy', { p_resource: reqRow.resource_id })
+
+  } else if (action === 'cancel') {
+    patch.status = 'cancelled'
+    patch.cancelled_at = now
   }
 
   const { data: updated, error: updErr } = await admin
@@ -134,6 +140,13 @@ Deno.serve(async (req) => {
     return fail('conflict', 'Someone else updated this request. Reload and try again.', 409)
   }
 
+  // A copy goes back on the shelf only once the status change has actually
+  // been written, so a conflicting update can never free a copy that is
+  // still out on loan.
+  if (action === 'return' || action === 'cancel') {
+    await admin.rpc('release_copy', { p_resource: reqRow.resource_id })
+  }
+
   await admin.from('audit_entries').insert({
     actor_id: actor.id,
     action: `borrow.${action}`,
@@ -142,14 +155,14 @@ Deno.serve(async (req) => {
     detail: { from: reqRow.status, to: patch.status, reason: reason || null },
   })
 
-  // In-app notification. The email itself is sent by the auth/SMTP layer
-  // or by a database webhook on this table.
+  // In-app notification, shown on the student's Updates screen.
   const titles: Record<string, string> = {
     approve: 'Borrowing request approved',
     reject:  'Borrowing request rejected',
     collect: 'Item collected',
     return:  'Item returned',
     review:  'Request under review',
+    cancel:  'Borrowing request closed',
   }
   const bodies: Record<string, string> = {
     approve: `Your request was approved. Collect it from the library.`,
@@ -157,6 +170,9 @@ Deno.serve(async (req) => {
     collect: `You collected this item. It is due back on ${patch.due_date}.`,
     return:  'Thanks, this item is back on the shelf.',
     review:  'A librarian is reviewing your request.',
+    cancel:  reason
+      ? `Your approved request was closed because it was not collected. ${reason}`
+      : 'Your approved request was closed because it was not collected. The copy has gone back on the shelf.',
   }
 
   await admin.from('notifications').insert({

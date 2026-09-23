@@ -24,6 +24,11 @@ create extension if not exists pg_trgm with schema extensions;
 -- this lets the operator class and word_similarity resolve in either.
 set search_path = public, extensions;
 
+-- Signed-in users call search_resources, which calls pg_trgm's
+-- word_similarity. Without USAGE on the schema holding pg_trgm, every
+-- search from the app fails with "function word_similarity does not exist".
+grant usage on schema extensions to authenticated;
+
 -- ---------------------------------------------------------------- normaliser
 -- Lower case, every run of non letters/digits becomes one space.
 -- "EEE-2011 (Dec)" -> "eee 2011 dec". Immutable so it can feed a stored column.

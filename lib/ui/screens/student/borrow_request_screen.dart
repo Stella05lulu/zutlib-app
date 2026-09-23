@@ -46,8 +46,8 @@ class _BorrowRequestScreenState extends ConsumerState<BorrowRequestScreen> {
       );
       refreshBorrowing(ref);
       if (!mounted) return;
-      showMessage(context, 'Request submitted. You will get an email once a '
-          'librarian decides.');
+      showMessage(context, 'Request submitted. The decision will appear '
+          'under Updates.');
       context.go('/borrowing');
     } on Failure catch (f) {
       if (mounted) showMessage(context, f.message, isError: true);

@@ -148,29 +148,44 @@ class ResourceRepository {
         path = '$department/$courseCode/${DateTime.now().millisecondsSinceEpoch}_$safe';
         await db.storage.from('resources').uploadBinary(path, fileBytes);
       }
-      await db.from('resources').insert({
-        'title': title.trim(),
-        'type': type.wire,
-        'department': department.trim(),
-        'course_code': courseCode.trim().toUpperCase(),
-        'academic_year': academicYear,
-        'semester': semester,
-        'description': description?.trim(),
-        'file_path': path,
-        'external_url': externalUrl?.trim(),
-        'is_physical': isPhysical,
-        'total_copies': isPhysical ? totalCopies : 0,
-        'available_copies': isPhysical ? totalCopies : 0,
-        'uploaded_by': currentUserId,
-      });
+      try {
+        await db.from('resources').insert({
+          'title': title.trim(),
+          'type': type.wire,
+          'department': department.trim(),
+          'course_code': courseCode.trim().toUpperCase(),
+          'academic_year': academicYear,
+          'semester': semester,
+          'description': description?.trim(),
+          'file_path': path,
+          'external_url': externalUrl?.trim(),
+          'is_physical': isPhysical,
+          'total_copies': isPhysical ? totalCopies : 0,
+          'available_copies': isPhysical ? totalCopies : 0,
+          'uploaded_by': currentUserId,
+        });
+      } catch (_) {
+        // The catalogue row was refused, so do not leave its file behind.
+        if (path != null) {
+          try {
+            await db.storage.from('resources').remove([path]);
+          } catch (_) {}
+        }
+        rethrow;
+      }
     } catch (e) {
       throw Failure.from(e);
     }
   }
 
-  Future<void> delete(String id) async {
+  /// Removes the catalogue row first (the database refuses if borrowing
+  /// history still points at it), then the stored file.
+  Future<void> delete(Resource r) async {
     try {
-      await db.from('resources').delete().eq('id', id);
+      await db.from('resources').delete().eq('id', r.id);
+      if (r.filePath != null) {
+        await db.storage.from('resources').remove([r.filePath!]);
+      }
     } catch (e) {
       throw Failure.from(e);
     }

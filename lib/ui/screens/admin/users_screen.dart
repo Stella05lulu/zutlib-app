@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/failure.dart';
+import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
 import '../../../models/profile.dart';
 import '../../../state/providers.dart';
@@ -13,6 +14,14 @@ class UsersScreen extends ConsumerWidget {
 
   Future<void> _change(
       BuildContext context, WidgetRef ref, Profile p) async {
+    // The database refuses this too (0009_hardening); saying so up front is
+    // kinder than a failed request.
+    if (p.id == currentUserId) {
+      showMessage(context,
+          'You cannot change your own role. Ask another administrator.',
+          isError: true);
+      return;
+    }
     final role = await showDialog<UserRole>(
       context: context,
       builder: (_) => SimpleDialog(

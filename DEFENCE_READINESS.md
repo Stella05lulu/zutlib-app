@@ -1,5 +1,38 @@
 # ZutLib — defence readiness diagnosis (23 September 2026)
 
+## Status after the fixes of 23 September 2026
+
+| Item | Status | Where |
+|---|---|---|
+| B1 SMTP | Your action (dashboard) | see chat checklist |
+| B2 GitHub backup + keepalive | Done in code (anon-key `beat()`); push and secrets are your action | `0008_keepalive.sql`, `.github/workflows/keepalive.yml` |
+| B3 Emails promised, not sent | Fixed: Updates screen for students, honest messages | `notifications_screen.dart`, `notification_repository.dart` |
+| B4 Staff accounts | Fixed: dashboard + script | `scripts/create_staff.sql` |
+| B5 Links on web | Fixed: web returns to its own address | `auth_repository.dart`, `register/index.ts` |
+| S1 Forged identity on requests | Fixed: trigger copies it from the profile | `0009_hardening.sql` |
+| S2 Files readable without a profile | Fixed in policy; turning sign-up off is your action | `0009_hardening.sql` |
+| S3 Students editing own profile | Fixed: column privileges, policy removed | `0009_hardening.sql` |
+| S4 Cancel rewriting the row | Fixed: column privileges | `0009_hardening.sql` |
+| S5 Registration race | Fixed | `register/index.ts` |
+| S6 Rate limit on register | Open: enable CAPTCHA or name as a limitation | |
+| S7 Admin self-demotion | Fixed in database and UI | `0009_hardening.sql`, `users_screen.dart` |
+| S8 Package id | Fixed: `zm.ac.zut.zutlib`, app label ZutLib | `android/app/build.gradle.kts` |
+| Search failing for signed-in users | Found and fixed while testing: `authenticated` lacked USAGE on the `extensions` schema | `0007_search.sql`, `0009_hardening.sql` |
+| F1 Uncollected copy stuck | Fixed: "Student did not collect" | `decide-request`, `request_detail_screen.dart` |
+| F2 Copy count drift on return | Fixed: release after the update | `decide-request` |
+| F3 Staff resources screen | Fixed: own search, limit 100 | `resource_manager_screen.dart` |
+| F4 Delete leaves file / raw error | Fixed | `resource_repository.dart`, `failure.dart` |
+| F5 Upload form | Fixed: department list, semester, course code check, PDF only | `upload_resource_screen.dart` |
+| F6 Orphan file on failed upload | Fixed | `resource_repository.dart` |
+| F7 Roll CSV | Fixed: quote-aware reader, Excel BOM | `core/csv.dart` |
+| Stale data after switching accounts | Found and fixed: providers now reload per signed-in account | `state/providers.dart` |
+| U1 to U5 visual contract | Open: your decision (see chat) | |
+| U3 Spinner on load | Fixed: skeleton placeholders | `state_views.dart`, `browse_screen.dart` |
+| T1 Security tests | Done: 42 checks, all PASS on a local copy of the schema | `supabase/tests/rls_negative.sql` |
+| T3 Unit tests | Done: 17 tests | `test/models_test.dart` |
+| T4 Test plan | Done: 30 system cases to run and log | `docs/TEST_PLAN.md` |
+| D1 to D4 Documentation | Fixed | `README.md` |
+
 Scope: every file in `lib/`, `supabase/migrations/`, `supabase/functions/`,
 `supabase/config.toml`, `android/`, `.github/`, `scripts/`.
 Not checked: the live Supabase project, because the cloud can't be reached from
