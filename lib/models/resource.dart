@@ -1,3 +1,8 @@
+/// ZUT's three schools, fixed in code. Resources record the department the
+/// paper itself names, because shared courses carry a different code in
+/// each department.
+const kDepartments = ['Business', 'Engineering', 'ICT'];
+
 enum ResourceType { pastPaper, testPaper, lectureNotes, bookLink }
 
 extension ResourceTypeX on ResourceType {

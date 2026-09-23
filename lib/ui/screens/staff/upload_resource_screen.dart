@@ -20,7 +20,7 @@ class UploadResourceScreen extends ConsumerStatefulWidget {
 class _UploadResourceScreenState extends ConsumerState<UploadResourceScreen> {
   final _form = GlobalKey<FormState>();
   final _title = TextEditingController();
-  final _department = TextEditingController();
+  String? _department;
   final _course = TextEditingController();
   final _year = TextEditingController(text: '${DateTime.now().year}');
   final _description = TextEditingController();
@@ -34,7 +34,7 @@ class _UploadResourceScreenState extends ConsumerState<UploadResourceScreen> {
 
   @override
   void dispose() {
-    for (final c in [_title, _department, _course, _year, _description, _url, _copies]) {
+    for (final c in [_title, _course, _year, _description, _url, _copies]) {
       c.dispose();
     }
     super.dispose();
@@ -68,7 +68,7 @@ class _UploadResourceScreenState extends ConsumerState<UploadResourceScreen> {
       await resourceRepo.upload(
         title: _title.text,
         type: _type,
-        department: _department.text,
+        department: _department!,
         courseCode: _course.text,
         academicYear: int.parse(_year.text.trim()),
         description: _description.text.isEmpty ? null : _description.text,
@@ -123,11 +123,15 @@ class _UploadResourceScreenState extends ConsumerState<UploadResourceScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: TextFormField(
-                        controller: _department,
+                      child: DropdownButtonFormField<String>(
+                        initialValue: _department,
                         decoration: const InputDecoration(labelText: 'Department'),
-                        validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'Required' : null,
+                        items: [
+                          for (final d in kDepartments)
+                            DropdownMenuItem(value: d, child: Text(d)),
+                        ],
+                        onChanged: (v) => setState(() => _department = v),
+                        validator: (v) => v == null ? 'Required' : null,
                       ),
                     ),
                     const SizedBox(width: Insets.sm),
