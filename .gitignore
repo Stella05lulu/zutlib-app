@@ -1,0 +1,30 @@
+.env
+*.log
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.idea/
+*.iml
+.vscode/
+ios/Pods/
+android/.gradle/
+android/local.properties
+roll.csv
+
+# Secrets and machine-specific files: never commit
+.env.*
+!.env.example
+supabase/.temp/
+supabase/.branches/
+android/key.properties
+**/*.jks
+**/*.keystore
+
+# Build output
+android/build/
+android/app/build/
+windows/flutter/ephemeral/
+linux/flutter/ephemeral/
+macos/Flutter/ephemeral/
