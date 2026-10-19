@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// A failure the interface can show a person without leaking internals.
@@ -15,6 +16,8 @@ class Failure implements Exception {
   /// they are never vague.
   static Failure from(Object error) {
     if (error is Failure) return error;
+    // Show the raw error in the debug console so access problems can be traced.
+    if (kDebugMode) debugPrint('Failure.from: ${error.runtimeType}: $error');
 
     if (error is AuthException) {
       final m = error.message.toLowerCase();
@@ -68,6 +71,10 @@ class Failure implements Exception {
     }
 
     if (error is StorageException) {
+      if (error.message.toLowerCase().contains('not found')) {
+        return const Failure(
+            'This file is missing from storage. Ask a librarian to upload it again.');
+      }
       return Failure(error.message);
     }
 

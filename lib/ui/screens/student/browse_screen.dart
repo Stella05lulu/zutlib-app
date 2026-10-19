@@ -62,7 +62,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
   Widget build(BuildContext context) {
     final filters = ref.watch(filtersProvider);
     final results = ref.watch(searchProvider);
-    final profile = ref.watch(profileProvider).value;
+    final profile = ref.watch(profileProvider).valueOrNull;
     final width = MediaQuery.sizeOf(context).width;
     // Room for the floating glass nav bar.
     final bottomGap = MediaQuery.paddingOf(context).bottom + Insets.lg;
@@ -478,7 +478,7 @@ class _FilterBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final facets = ref.watch(facetsProvider).value;
+    final facets = ref.watch(facetsProvider).valueOrNull;
 
     void set(ResourceFilters next) =>
         ref.read(filtersProvider.notifier).state = next;

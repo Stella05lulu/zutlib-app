@@ -1,0 +1,11 @@
+name: seed_papers
+description: One-off script that loads past-paper PDFs into ZutLib's Supabase project. Not part of the app.
+publish_to: none
+version: 1.0.0
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  http: ^1.2.0
+  csv: ^6.0.0

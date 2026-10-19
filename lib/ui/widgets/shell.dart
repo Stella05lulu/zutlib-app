@@ -42,7 +42,7 @@ class AppShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final profile = ref.watch(profileProvider).value;
+    final profile = ref.watch(profileProvider).valueOrNull;
     final roleTargets = switch (profile?.role) {
       UserRole.admin => _adminNav,
       UserRole.librarian => _staffNav,

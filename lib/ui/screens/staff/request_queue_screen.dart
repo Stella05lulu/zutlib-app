@@ -22,7 +22,7 @@ class RequestQueueScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selected = ref.watch(queueFilterProvider);
     final async = ref.watch(queueProvider);
-    final overview = ref.watch(overviewProvider).value;
+    final overview = ref.watch(overviewProvider).valueOrNull;
 
     return Scaffold(
       appBar: AppBar(

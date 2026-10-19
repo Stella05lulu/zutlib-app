@@ -5,8 +5,8 @@ import '../../core/theme.dart';
 
 /// Canvas with three soft glows placed on a clear diagonal rhythm (top
 /// right, middle left, bottom right), sized from the screen so the layout
-/// looks the same on every phone. A faint ring around the top glow and a
-/// light wash down from the top give it a designed, tidy feel.
+/// looks the same on every phone. A light wash down from the top gives it a
+/// designed, tidy feel.
 class GlassBackground extends StatelessWidget {
   const GlassBackground({super.key, required this.child});
   final Widget child;
@@ -50,24 +50,6 @@ class GlassBackground extends StatelessWidget {
             ),
           ),
           orb(w * 0.92, h * 0.08, d, Palette.blue, dark ? 0.42 : 0.30),
-          // Thin ring echoing the top orb.
-          Positioned(
-            left: w * 0.92 - d * 0.36,
-            top: h * 0.08 - d * 0.36,
-            width: d * 0.72,
-            height: d * 0.72,
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: (dark ? Colors.white : Palette.blue)
-                        .withValues(alpha: dark ? 0.07 : 0.10),
-                  ),
-                ),
-              ),
-            ),
-          ),
           orb(w * 0.04, h * 0.55, d * 0.8, Palette.violet, dark ? 0.30 : 0.18),
           orb(w * 0.96, h * 0.96, d * 0.7, Palette.teal, dark ? 0.24 : 0.16),
           Positioned.fill(child: child),

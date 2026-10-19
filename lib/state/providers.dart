@@ -39,7 +39,7 @@ final profileProvider = FutureProvider<Profile?>((ref) async {
 
 /// Where a signed-in person should land, given their role.
 final homeRouteProvider = Provider<String>((ref) {
-  final profile = ref.watch(profileProvider).value;
+  final profile = ref.watch(profileProvider).valueOrNull;
   return switch (profile?.role) {
     UserRole.admin => '/admin/roll',
     UserRole.librarian => '/staff/requests',
@@ -109,7 +109,7 @@ final notificationsProvider = FutureProvider<List<AppNotification>>((ref) {
 
 /// Drives the dot on the Updates tab.
 final unreadCountProvider = Provider<int>((ref) {
-  final list = ref.watch(notificationsProvider).value ?? const [];
+  final list = ref.watch(notificationsProvider).valueOrNull ?? const [];
   return list.where((n) => n.isUnread).length;
 });
 

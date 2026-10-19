@@ -58,7 +58,7 @@ class _BorrowRequestScreenState extends ConsumerState<BorrowRequestScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final profile = ref.watch(profileProvider).value;
+    final profile = ref.watch(profileProvider).valueOrNull;
     final async = ref.watch(resourceProvider(widget.resourceId));
 
     return Scaffold(

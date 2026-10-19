@@ -28,3 +28,8 @@ android/app/build/
 windows/flutter/ephemeral/
 linux/flutter/ephemeral/
 macos/Flutter/ephemeral/
+
+# Local backups and data not tracked in git
+*.bak
+seed/
+project zut 1/
