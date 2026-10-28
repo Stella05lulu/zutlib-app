@@ -13,24 +13,28 @@ class NavTarget {
   final IconData icon, activeIcon;
 }
 
+// Each role sees only its own areas. The router and the database enforce
+// the same split; these lists only decide which tabs are drawn.
 const _studentNav = [
   NavTarget('/browse', 'Explore', Icons.explore_outlined, Icons.explore_rounded),
   NavTarget('/borrowing', 'My borrowing', Icons.auto_stories_outlined, Icons.auto_stories_rounded),
+  NavTarget('/study', 'Study', Icons.school_outlined, Icons.school_rounded),
   NavTarget('/updates', 'Updates', Icons.notifications_none_rounded, Icons.notifications_rounded),
   NavTarget('/profile', 'Account', Icons.account_circle_outlined, Icons.account_circle_rounded),
 ];
 
 const _staffNav = [
   NavTarget('/staff/requests', 'Requests', Icons.inbox_outlined, Icons.inbox_rounded),
-  NavTarget('/staff/resources', 'Resources', Icons.folder_outlined, Icons.folder_rounded),
+  NavTarget('/staff/library', 'Library', Icons.local_library_outlined, Icons.local_library_rounded),
+  NavTarget('/browse', 'Catalogue', Icons.explore_outlined, Icons.explore_rounded),
   NavTarget('/profile', 'Account', Icons.account_circle_outlined, Icons.account_circle_rounded),
 ];
 
 const _adminNav = [
-  NavTarget('/admin/roll', 'Student roll', Icons.badge_outlined, Icons.badge_rounded),
+  NavTarget('/admin', 'Dashboard', Icons.space_dashboard_outlined, Icons.space_dashboard_rounded),
   NavTarget('/admin/users', 'Users', Icons.group_outlined, Icons.group_rounded),
   NavTarget('/staff/requests', 'Requests', Icons.inbox_outlined, Icons.inbox_rounded),
-  NavTarget('/staff/resources', 'Resources', Icons.folder_outlined, Icons.folder_rounded),
+  NavTarget('/staff/library', 'Library', Icons.local_library_outlined, Icons.local_library_rounded),
   NavTarget('/profile', 'Account', Icons.account_circle_outlined, Icons.account_circle_rounded),
 ];
 
@@ -60,9 +64,18 @@ class AppShell extends ConsumerWidget {
           t,
     ];
 
+    // The tab whose path matches most of the location ("/admin/users"
+    // picks Users, not Dashboard).
     final location = GoRouterState.of(context).uri.path;
-    var index = targets.indexWhere((t) => location.startsWith(t.path));
-    if (index < 0) index = 0;
+    var index = 0;
+    var best = -1;
+    for (var i = 0; i < targets.length; i++) {
+      final p = targets[i].path;
+      if ((location == p || location.startsWith('$p/')) && p.length > best) {
+        best = p.length;
+        index = i;
+      }
+    }
 
     void go(int i) => context.go(targets[i].path);
 

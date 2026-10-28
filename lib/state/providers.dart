@@ -5,6 +5,7 @@ import '../core/supabase.dart';
 import '../data/admin_repository.dart';
 import '../data/auth_repository.dart';
 import '../data/borrow_repository.dart';
+import '../data/library_repository.dart';
 import '../data/notification_repository.dart';
 import '../data/resource_repository.dart';
 import '../models/app_notification.dart';
@@ -16,6 +17,7 @@ const authRepo = AuthRepository();
 const resourceRepo = ResourceRepository();
 const borrowRepo = BorrowRepository();
 const adminRepo = AdminRepository();
+const libraryRepo = LibraryRepository();
 const notificationRepo = NotificationRepository();
 
 /// Auth events drive everything downstream: a sign in or sign out
@@ -41,11 +43,15 @@ final profileProvider = FutureProvider<Profile?>((ref) async {
 final homeRouteProvider = Provider<String>((ref) {
   final profile = ref.watch(profileProvider).valueOrNull;
   return switch (profile?.role) {
-    UserRole.admin => '/admin/roll',
+    UserRole.admin => '/admin',
     UserRole.librarian => '/staff/requests',
     _ => '/browse',
   };
 });
+
+/// The token from an invite link the app was opened with, waiting to be
+/// turned into a session (see main.dart and SplashScreen).
+final pendingInviteProvider = StateProvider<String?>((_) => null);
 
 /// True while the app was opened from a password reset link and the new
 /// password has not been set yet. The router keeps the person on the
@@ -114,17 +120,50 @@ final unreadCountProvider = Provider<int>((ref) {
 });
 
 // ------------------------------------------------------------------ admin
-final rollSearchProvider = StateProvider<String>((_) => '');
-
-final rollProvider = FutureProvider<List<RollEntry>>((ref) {
+final adminOverviewProvider = FutureProvider.autoDispose<AdminOverview>((ref) {
   ref.watch(userIdProvider);
-  final search = ref.watch(rollSearchProvider);
-  return adminRepo.roll(search: search);
+  return adminRepo.overview();
 });
 
-final usersProvider = FutureProvider<List<Profile>>((ref) {
+/// Which list the Users screen shows: pending students, or everyone.
+final usersTabProvider = StateProvider<int>((_) => 0);
+final usersSearchProvider = StateProvider<String>((_) => '');
+
+final pendingUsersProvider = FutureProvider.autoDispose<List<Profile>>((ref) {
   ref.watch(userIdProvider);
-  return adminRepo.users();
+  return adminRepo.users(status: AccountStatus.pending);
+});
+
+final usersProvider = FutureProvider.autoDispose<List<Profile>>((ref) {
+  ref.watch(userIdProvider);
+  return adminRepo.users(search: ref.watch(usersSearchProvider));
+});
+
+final auditProvider = FutureProvider.autoDispose<List<AuditEntry>>((ref) {
+  ref.watch(userIdProvider);
+  return adminRepo.audit();
+});
+
+void refreshUsers(WidgetRef ref) {
+  ref.invalidate(pendingUsersProvider);
+  ref.invalidate(usersProvider);
+  ref.invalidate(adminOverviewProvider);
+  ref.invalidate(auditProvider);
+}
+
+// ------------------------------------------------------------------ library (staff)
+/// 0 = past papers, 1 = books.
+final libraryTabProvider = StateProvider<int>((_) => 0);
+final libraryQueryProvider = StateProvider<String>((_) => '');
+final libraryShowRetiredProvider = StateProvider<bool>((_) => false);
+
+final libraryItemsProvider = FutureProvider.autoDispose<List<Resource>>((ref) {
+  ref.watch(userIdProvider);
+  return libraryRepo.list(
+    books: ref.watch(libraryTabProvider) == 1,
+    query: ref.watch(libraryQueryProvider),
+    includeRetired: ref.watch(libraryShowRetiredProvider),
+  );
 });
 
 /// Called after any write so every view showing the affected data refreshes.
@@ -135,4 +174,5 @@ void refreshBorrowing(WidgetRef ref) {
   ref.invalidate(searchProvider);
   ref.invalidate(staffResourcesProvider);
   ref.invalidate(notificationsProvider);
+  ref.invalidate(libraryItemsProvider);
 }

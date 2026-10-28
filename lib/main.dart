@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/env.dart';
 import 'core/router.dart';
 import 'core/theme.dart';
+import 'state/providers.dart';
 import 'state/theme_mode.dart';
 
 Future<void> main() async {
@@ -17,8 +19,17 @@ Future<void> main() async {
     anonKey: Env.supabaseAnonKey,
   );
   final prefs = await SharedPreferences.getInstance();
+  // An invite email links to the web app with ?token_hash=...&type=invite
+  // (supabase/templates/invite.html). The splash screen exchanges it for a
+  // session, then the person chooses their password.
+  final link = Uri.base.queryParameters;
+  final inviteToken =
+      kIsWeb && link['type'] == 'invite' ? link['token_hash'] : null;
   runApp(ProviderScope(
-    overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+    overrides: [
+      sharedPrefsProvider.overrideWithValue(prefs),
+      pendingInviteProvider.overrideWith((ref) => inviteToken),
+    ],
     child: const ZutLibApp(),
   ));
 }

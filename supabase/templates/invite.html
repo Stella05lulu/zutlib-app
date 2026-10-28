@@ -1,0 +1,25 @@
+<!-- ZutLib: "Invite user" email.
+     Paste into Supabase -> Authentication -> Emails -> Templates -> Invite user.
+     Subject: You have been invited to ZutLib
+     The link goes to the ZutLib web app (the Site URL), which signs the
+     person in with the one-time token and asks them to choose a password. -->
+<div style="font-family: Arial, Helvetica, sans-serif; color: #1c2027; background: #f2f3f5; padding: 24px;">
+  <div style="max-width: 520px; margin: 0 auto; background: #fafafb; border: 1px solid #d8dbe1; border-radius: 10px; padding: 28px;">
+    <p style="font-size: 13px; color: #4b5361; margin: 0 0 16px;">ZutLib, Zambia University College of Technology library</p>
+    <h1 style="font-size: 20px; margin: 0 0 12px;">You have been invited to ZutLib</h1>
+    <p style="font-size: 15px; line-height: 1.5; margin: 0 0 20px;">
+      An administrator has created a ZutLib account for {{ .Email }}.
+      Open the link below and choose your own password to finish setting it up.
+    </p>
+    <p style="margin: 0 0 24px;">
+      <a href="{{ .SiteURL }}/?token_hash={{ .TokenHash }}&type=invite"
+         style="background: #b4501a; color: #fbf7f4; text-decoration: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; display: inline-block;">
+        Choose my password
+      </a>
+    </p>
+    <p style="font-size: 13px; line-height: 1.5; color: #4b5361; margin: 0;">
+      The link works once and expires. If it has expired, ask the administrator to resend your invite.
+      If you were not expecting this email, you can ignore it.
+    </p>
+  </div>
+</div>

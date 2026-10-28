@@ -152,9 +152,9 @@ class _RequestDetailScreenState extends ConsumerState<RequestDetailScreen> {
                       children: [
                         _Row('Name', r.studentName),
                         const Divider(height: 1),
-                        _Row('Student number', r.studentNumber),
+                        _Row('Email', r.studentEmail ?? ''),
                         const Divider(height: 1),
-                        _Row('Programme', r.programme ?? ''),
+                        _Row('Department', r.studentDepartment ?? ''),
                       ],
                     ),
                   ),

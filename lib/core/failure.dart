@@ -1,6 +1,21 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+/// Supabase refused to send another email so soon. [seconds] is how long
+/// to wait before trying again, shown to the person as a countdown.
+class RateLimited extends Failure {
+  const RateLimited(super.message, this.seconds) : super(code: 'rate_limited');
+  final int seconds;
+
+  /// "For security purposes, you can only request this after 42 seconds."
+  /// gives 42; anything else gives the default of 60 (Supabase Auth's
+  /// default gap between emails to the same address).
+  static int secondsIn(String message) {
+    final m = RegExp(r'after (\d+) second').firstMatch(message);
+    return m == null ? 60 : int.parse(m.group(1)!);
+  }
+}
+
 /// A failure the interface can show a person without leaking internals.
 class Failure implements Exception {
   const Failure(this.message, {this.code});
@@ -30,8 +45,10 @@ class Failure implements Exception {
           code: 'unverified',
         );
       }
-      if (m.contains('rate limit') || m.contains('too many')) {
-        return const Failure('Too many attempts. Wait a minute and try again.');
+      if (error.statusCode == '429' || m.contains('rate limit') ||
+          m.contains('too many') || m.contains('for security purposes')) {
+        final wait = RateLimited.secondsIn(error.message);
+        return RateLimited('Too many emails or attempts just now. Try again in $wait seconds.', wait);
       }
       return Failure(error.message);
     }
@@ -63,6 +80,10 @@ class Failure implements Exception {
 
     if (error is FunctionException) {
       final details = error.details;
+      if (details is Map && details['error'] == 'rate_limited') {
+        final wait = (details['retry_after'] as num?)?.toInt() ?? 60;
+        return RateLimited((details['message'] ?? 'Too many emails just now.') as String, wait);
+      }
       if (details is Map && details['message'] is String) {
         return Failure(details['message'] as String,
             code: details['error'] as String?);

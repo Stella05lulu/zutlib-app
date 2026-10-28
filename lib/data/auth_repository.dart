@@ -23,32 +23,65 @@ class AuthRepository {
 
   Stream<AuthState> get changes => auth.onAuthStateChange;
 
-  /// Registration does not call signUp. Eligibility has to be established
-  /// against the institutional roll first, and the roll is not readable by
-  /// any client, so the check happens inside an edge function.
-  Future<String> register({
-    required String studentNumber,
-    required String surname,
+  /// Public sign-up. It can only ever make a student account: the database
+  /// trigger that creates the profile ignores everything here except the
+  /// name and department, and starts the account as pending until an
+  /// administrator approves it. Email verification is required before the
+  /// person can sign in.
+  Future<void> register({
+    required String fullName,
+    required String department,
     required String email,
     required String password,
   }) async {
     try {
-      final res = await db.functions.invoke('register', body: {
-        'student_number': studentNumber,
-        'surname': surname,
-        'email': email,
-        'password': password,
-        'redirect_to': kLoginCallbackRedirect,
-      });
-      final data = res.data;
-      if (data is Map && data['message'] is String) {
-        return data['message'] as String;
-      }
-      return 'Account created. Check your email to verify the address.';
+      await auth.signUp(
+        email: email.trim(),
+        password: password,
+        emailRedirectTo: kLoginCallbackRedirect,
+        data: {'full_name': fullName.trim(), 'department': department},
+      );
     } catch (e) {
       throw Failure.from(e);
     }
   }
+
+  /// Opens the session from an invite link. Invite emails point at the app
+  /// with ?token_hash=...&type=invite (see supabase/templates/invite.html).
+  Future<void> acceptInvite(String tokenHash) async {
+    try {
+      await auth.verifyOTP(type: OtpType.invite, tokenHash: tokenHash);
+    } catch (e) {
+      final f = Failure.from(e);
+      if (f.message.toLowerCase().contains('expired') || f.message.toLowerCase().contains('invalid')) {
+        throw const Failure('This invite link has expired or was already used. '
+            'Ask an administrator to send a new one.');
+      }
+      throw f;
+    }
+  }
+
+  /// An invited person chooses their password, then the database is told
+  /// so the app stops asking.
+  Future<void> setFirstPassword(String password) async {
+    try {
+      await auth.updateUser(UserAttributes(password: password));
+    } on AuthException catch (e) {
+      // Already this password (for example set through "Forgot password"
+      // first): nothing to change, so just finish setting up.
+      if (!_isSamePassword(e)) throw Failure.from(e);
+    } catch (e) {
+      throw Failure.from(e);
+    }
+    try {
+      await db.rpc('mark_password_set');
+    } catch (e) {
+      throw Failure.from(e);
+    }
+  }
+
+  static bool _isSamePassword(AuthException e) =>
+      e.code == 'same_password' || e.message.toLowerCase().contains('different from the old');
 
   Future<void> signIn(String email, String password) async {
     try {
@@ -87,6 +120,9 @@ class AuthRepository {
   Future<void> updatePassword(String password) async {
     try {
       await auth.updateUser(UserAttributes(password: password));
+      // Choosing a password this way also finishes an unfinished invite, so
+      // the app does not ask for a password a second time.
+      await db.rpc('mark_password_set');
     } catch (e) {
       throw Failure.from(e);
     }

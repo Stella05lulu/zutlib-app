@@ -47,9 +47,10 @@ class BorrowRepository {
       await db.from('borrow_requests').insert({
         'resource_id': resourceId,
         'student_id': student.id,
+        // The database overwrites these from the profile (a trigger), so
+        // what is sent here is never trusted.
         'student_name': student.fullName,
-        'student_number': student.studentNumber ?? '',
-        'programme': student.programme,
+        'student_number': '',
         'collection_date': collectionDate?.toIso8601String().substring(0, 10),
       });
     } catch (e) {

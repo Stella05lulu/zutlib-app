@@ -233,7 +233,7 @@ class _QueueCard extends StatelessWidget {
                     const SizedBox(height: 3),
                     MetaLine([
                       request.studentName,
-                      request.studentNumber,
+                      request.studentDepartment ?? '',
                       dateFmt.format(request.requestedAt),
                     ]),
                   ],

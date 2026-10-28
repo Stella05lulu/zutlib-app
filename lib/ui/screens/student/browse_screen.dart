@@ -93,7 +93,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
                           if (profile != null) _WelcomeHeader(
                             name: profile.fullName,
                             initials: profile.initials,
-                            subtitle: profile.programme ?? profile.department ?? 'ZUT student',
+                            subtitle: profile.department ?? 'ZUT student',
                           ),
                           if (!_bannerClosed) ...[
                             const SizedBox(height: Insets.md),
@@ -245,6 +245,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
       ResourceType.testPaper: 'Test papers',
       ResourceType.lectureNotes: 'Lecture notes',
       ResourceType.bookLink: 'Recommended books',
+      ResourceType.book: 'Library books',
     };
     for (final type in ResourceType.values) {
       final ofType = items.where((r) => r.type == type).toList();

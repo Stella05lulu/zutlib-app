@@ -1,109 +1,181 @@
-import '../core/csv.dart';
 import '../core/failure.dart';
 import '../core/supabase.dart';
 import '../models/profile.dart';
+import 'auth_repository.dart' show kLoginCallbackRedirect;
 
-class RollEntry {
-  const RollEntry({
-    required this.studentNumber,
-    required this.surname,
-    required this.programme,
-    required this.department,
-    required this.intakeYear,
-    required this.claimed,
-    this.firstName,
+/// Counts for the administrator's dashboard, from admin_overview().
+class AdminOverview {
+  const AdminOverview({
+    required this.pendingStudents,
+    required this.activeStudents,
+    required this.suspendedAccounts,
+    required this.librarians,
+    required this.admins,
+    required this.books,
+    required this.sampleBooks,
+    required this.papers,
+    required this.samplePapers,
+    required this.openRequests,
+    required this.overdueRequests,
   });
 
-  final String studentNumber, surname, programme, department;
-  final String? firstName;
-  final int intakeYear;
-  final bool claimed;
+  final int pendingStudents, activeStudents, suspendedAccounts, librarians, admins;
+  final int books, sampleBooks, papers, samplePapers, openRequests, overdueRequests;
 
-  factory RollEntry.fromMap(Map<String, dynamic> m) => RollEntry(
-        studentNumber: m['student_number'] as String,
-        surname: m['surname'] as String,
-        firstName: m['first_name'] as String?,
-        programme: m['programme'] as String,
-        department: m['department'] as String,
-        intakeYear: m['intake_year'] as int,
-        claimed: (m['claimed'] ?? false) as bool,
-      );
+  factory AdminOverview.fromMap(Map<String, dynamic> m) {
+    int n(String k) => (m[k] as num?)?.toInt() ?? 0;
+    return AdminOverview(
+      pendingStudents: n('pending_students'),
+      activeStudents: n('active_students'),
+      suspendedAccounts: n('suspended_accounts'),
+      librarians: n('librarians'),
+      admins: n('admins'),
+      books: n('books'),
+      sampleBooks: n('sample_books'),
+      papers: n('papers'),
+      samplePapers: n('sample_papers'),
+      openRequests: n('open_requests'),
+      overdueRequests: n('overdue_requests'),
+    );
+  }
 }
 
+/// One line of the audit log.
+class AuditEntry {
+  const AuditEntry({
+    required this.action,
+    required this.targetId,
+    required this.at,
+    this.actorName,
+    this.detail = const {},
+  });
+
+  final String action;
+  final String targetId;
+  final DateTime at;
+  final String? actorName;
+  final Map<String, dynamic> detail;
+
+  /// "admin.approve" -> "Approved", in plain words.
+  String get label => switch (action) {
+        'admin.approve' => 'Approved an account',
+        'admin.reject' => 'Rejected an account',
+        'admin.suspend' => 'Suspended an account',
+        'admin.reactivate' => 'Reactivated an account',
+        'admin.set_role' => 'Changed a role',
+        'admin.create' => 'Created an account',
+        'admin.test_invite' => 'Sent a test invite',
+        'admin.resend_invite' => 'Resent an invite',
+        _ => action.replaceAll('.', ' ').replaceAll('_', ' '),
+      };
+
+  factory AuditEntry.fromMap(Map<String, dynamic> m) {
+    final actor = m['actor'];
+    return AuditEntry(
+      action: (m['action'] ?? '') as String,
+      targetId: (m['target_id'] ?? '') as String,
+      at: DateTime.parse(m['occurred_at'] as String).toLocal(),
+      actorName: actor is Map ? actor['full_name'] as String? : null,
+      detail: (m['detail'] as Map?)?.cast<String, dynamic>() ?? const {},
+    );
+  }
+}
+
+/// What an administrator can do. Reading uses row level security (only an
+/// active admin may read every profile and the audit log). Every change goes
+/// through the admin-users Edge Function, which checks the caller is an
+/// admin and writes the audit log; no profile is ever edited from the app.
 class AdminRepository {
   const AdminRepository();
 
-  Future<List<RollEntry>> roll({String? search}) async {
+  static const _profileColumns =
+      'id,full_name,role,status,email,department,must_set_password,created_at';
+
+  Future<AdminOverview> overview() async {
     try {
-      var q = db.from('roll').select();
-      if (search != null && search.trim().isNotEmpty) {
-        final s = search.trim();
-        q = q.or('student_number.ilike.%$s%,surname.ilike.%$s%');
-      }
-      final rows = await q.order('student_number').limit(200);
-      return (rows as List).map((e) => RollEntry.fromMap(e)).toList();
+      final rows = (await db.rpc('admin_overview')) as List;
+      if (rows.isEmpty) throw const Failure('The dashboard returned no figures.');
+      return AdminOverview.fromMap(rows.first as Map<String, dynamic>);
     } catch (e) {
       throw Failure.from(e);
     }
   }
 
-  /// Import is additive and idempotent: re-importing a roll updates the
-  /// details of existing records without disturbing the claimed flag.
-  Future<int> importRoll(String csv) async {
-    final rows = parseCsv(csv);
-    if (rows.length < 2) throw const Failure('That file has no rows under its header.');
-
-    final header = rows.first.map((h) => h.trim().toLowerCase()).toList();
-    int col(String name) {
-      final i = header.indexOf(name);
-      if (i < 0) throw Failure('The file is missing a "$name" column.');
-      return i;
+  Future<List<Profile>> users({AccountStatus? status, String search = ''}) async {
+    try {
+      var q = db.from('profiles').select(_profileColumns);
+      if (status != null) q = q.eq('status', status.wire);
+      final s = search.trim().replaceAll(RegExp(r'[,()%]'), ' ').trim();
+      if (s.isNotEmpty) q = q.or('full_name.ilike.%$s%,email.ilike.%$s%');
+      final rows = await q.order('created_at', ascending: false).limit(300);
+      return [for (final r in rows) Profile.fromMap(r)];
+    } catch (e) {
+      throw Failure.from(e);
     }
+  }
 
-    final iNum = col('student_number');
-    final iSur = col('surname');
-    final iProg = col('programme');
-    final iDept = col('department');
-    final iYear = col('intake_year');
-    final iFirst = header.indexOf('first_name');
+  Future<List<AuditEntry>> audit({int limit = 50}) async {
+    try {
+      final rows = await db
+          .from('audit_entries')
+          .select('action,target_id,detail,occurred_at,actor:profiles!audit_entries_actor_id_fkey(full_name)')
+          .like('action', 'admin.%')
+          .order('occurred_at', ascending: false)
+          .limit(limit);
+      return [for (final r in rows) AuditEntry.fromMap(r)];
+    } catch (e) {
+      throw Failure.from(e);
+    }
+  }
 
-    final payload = <Map<String, dynamic>>[];
-    for (var i = 1; i < rows.length; i++) {
-      final cells = rows[i];
-      if (cells.length < header.length) continue;
-      payload.add({
-        'student_number': cells[iNum].trim(),
-        'surname': cells[iSur].trim(),
-        if (iFirst >= 0) 'first_name': cells[iFirst].trim(),
-        'programme': cells[iProg].trim(),
-        'department': cells[iDept].trim(),
-        'intake_year': int.tryParse(cells[iYear].trim()) ?? DateTime.now().year,
+  Future<Map<String, dynamic>> _call(Map<String, dynamic> body) async {
+    try {
+      final res = await db.functions.invoke('admin-users', body: {
+        ...body,
+        'redirect_to': kLoginCallbackRedirect,
       });
-    }
-    if (payload.isEmpty) throw const Failure('No usable rows were found in that file.');
-
-    try {
-      await db.from('roll').upsert(payload, onConflict: 'student_number', ignoreDuplicates: false);
-      return payload.length;
+      final data = res.data;
+      return data is Map ? data.cast<String, dynamic>() : const {};
     } catch (e) {
       throw Failure.from(e);
     }
   }
 
-  Future<List<Profile>> users() async {
-    try {
-      final rows = await db.from('profiles').select().order('created_at', ascending: false);
-      return (rows as List).map((e) => Profile.fromMap(e)).toList();
-    } catch (e) {
-      throw Failure.from(e);
-    }
+  /// Invites a person by email. They choose their own password from the
+  /// email; the account is approved with [role] straight away. Returns the
+  /// message to show.
+  Future<String> createAccount({
+    required String email,
+    required String fullName,
+    required UserRole role,
+    String? department,
+  }) async {
+    final data = await _call({
+      'action': 'create',
+      'email': email.trim(),
+      'full_name': fullName.trim(),
+      'role': role.wire,
+      if (department != null) 'department': department,
+    });
+    return (data['message'] ?? 'Invite sent.') as String;
   }
 
-  Future<void> setRole(String userId, UserRole role) async {
-    try {
-      await db.from('profiles').update({'role': role.wire}).eq('id', userId);
-    } catch (e) {
-      throw Failure.from(e);
-    }
+  /// Checks email delivery by sending an invite to [email]. The account it
+  /// makes is suspended and can do nothing.
+  Future<String> sendTestInvite(String email) async {
+    final data = await _call({'action': 'test_invite', 'email': email.trim()});
+    return (data['message'] ?? 'Test invite sent.') as String;
   }
+
+  Future<String> resendInvite(String userId) async {
+    final data = await _call({'action': 'resend_invite', 'user_id': userId});
+    return (data['message'] ?? 'Invite sent again.') as String;
+  }
+
+  Future<void> approve(String userId) => _call({'action': 'approve', 'user_id': userId});
+  Future<void> reject(String userId) => _call({'action': 'reject', 'user_id': userId});
+  Future<void> suspend(String userId) => _call({'action': 'suspend', 'user_id': userId});
+  Future<void> reactivate(String userId) => _call({'action': 'reactivate', 'user_id': userId});
+  Future<void> setRole(String userId, UserRole role) =>
+      _call({'action': 'set_role', 'user_id': userId, 'role': role.wire});
 }

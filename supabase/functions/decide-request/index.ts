@@ -1,4 +1,4 @@
-// ZutLib — borrowing state transitions
+// ZutLib: borrowing state transitions
 //
 // A state change is a server operation. The client asks; this function
 // decides. Every transition is validated against the current state before
@@ -56,9 +56,13 @@ Deno.serve(async (req) => {
   if (userErr || !user) return fail('unauthenticated', 'Sign in first.', 401)
 
   const { data: actor } = await admin
-    .from('profiles').select('id, role, full_name').eq('id', user.id).maybeSingle()
+    .from('profiles').select('id, role, full_name, status').eq('id', user.id).maybeSingle()
 
   if (!actor) return fail('no_profile', 'This account has no profile.', 403)
+  // A suspended or not-yet-approved staff account can decide nothing.
+  if (actor.status !== 'active') {
+    return fail('inactive', 'This account is not active. Ask an administrator.', 403)
+  }
   if (actor.role !== 'librarian' && actor.role !== 'admin') {
     return fail('forbidden', 'Only library staff can decide borrowing requests.', 403)
   }

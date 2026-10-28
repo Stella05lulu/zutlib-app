@@ -62,19 +62,13 @@ class ProfileScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  const SectionHeading('Verified details'),
+                  const SectionHeading('Account details'),
                   Card(
                     child: Column(
                       children: [
                         _Row('Email', auth.currentUser?.email ?? ''),
-                        if (profile.studentNumber != null) ...[
-                          const Divider(height: 1),
-                          _Row('Student number', profile.studentNumber!),
-                        ],
-                        if (profile.programme != null) ...[
-                          const Divider(height: 1),
-                          _Row('Programme', profile.programme!),
-                        ],
+                        const Divider(height: 1),
+                        _Row('Status', profile.status.label),
                         if (profile.department != null) ...[
                           const Divider(height: 1),
                           _Row('Department', profile.department!),
@@ -84,8 +78,8 @@ class ProfileScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: Insets.sm),
                   Text(
-                    'These came from the institutional roll and cannot be '
-                    'edited here. Contact the library if something is wrong.',
+                    'Only an administrator can change these. Contact the '
+                    'library if something is wrong.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SectionHeading('Appearance'),

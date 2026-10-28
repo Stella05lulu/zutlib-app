@@ -86,7 +86,7 @@ class _BorrowRequestScreenState extends ConsumerState<BorrowRequestScreen> {
                               Text(r.title,
                                   style: Theme.of(context).textTheme.titleMedium),
                               const SizedBox(height: 3),
-                              MetaLine([r.courseCode, '${r.academicYear}']),
+                              MetaLine([r.courseCode, if (r.academicYear != null) '${r.academicYear}']),
                               const SizedBox(height: Insets.sm),
                               Text(r.availabilityLabel,
                                   style: TextStyle(
@@ -107,17 +107,16 @@ class _BorrowRequestScreenState extends ConsumerState<BorrowRequestScreen> {
                     children: [
                       _Row('Name', profile?.fullName ?? ''),
                       const Divider(height: 1),
-                      _Row('Student number', profile?.studentNumber ?? ''),
+                      _Row('Email', profile?.email ?? ''),
                       const Divider(height: 1),
-                      _Row('Programme', profile?.programme ?? ''),
+                      _Row('Department', profile?.department ?? ''),
                     ],
                   ),
                 ),
                 const SizedBox(height: Insets.sm),
                 Text(
-                  'These details came from the institutional roll when your '
-                  'account was created. You will not be asked for an '
-                  'identification document.',
+                  'These details come from your approved account. You will '
+                  'not be asked for an identification document.',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const SectionHeading('Collection'),

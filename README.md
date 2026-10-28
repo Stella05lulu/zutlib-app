@@ -14,92 +14,161 @@ first. Digital resources open immediately. Physical copies are borrowed
 through a request a librarian approves or rejects; the student sees each
 decision on their Updates screen.
 
-Nobody surrenders a student card. Eligibility is proved once, at
-registration, against the institutional roll.
+Accounts are separated into three roles. Students sign themselves up, confirm
+their email, and then wait on a holding screen until an administrator
+approves them. Librarians and administrators are never self-registered: an
+administrator invites them, and they choose their own password from the
+invite email. Librarians manage books, past papers and borrowing;
+administrators manage accounts and can also use every librarian tool.
 
 ## Setup
 
+Run everything from the `zutlib` folder with the Supabase CLI logged in and
+linked to the project.
+
 ### 1. Database
 
-Run the migrations in order in the Supabase SQL editor:
+Supabase dashboard -> SQL Editor -> New query. Paste and run each migration
+on its own, in order:
 
     supabase/migrations/0001_schema.sql
-    supabase/migrations/0002_rls.sql
-    supabase/migrations/0003_copy_functions.sql
-    supabase/migrations/0004_grants.sql
-    supabase/migrations/0005_service_role_grants.sql
-    supabase/migrations/0006_storage.sql
-    supabase/migrations/0007_search.sql
-    supabase/migrations/0008_keepalive.sql
-    supabase/migrations/0009_hardening.sql
+    ...
+    supabase/migrations/0010_study_assistant.sql
+    supabase/migrations/0011_book_type.sql           (one line; must run alone)
+    supabase/migrations/0012_accounts_roles_library.sql
+    supabase/migrations/0013_study_pdfs.sql
 
-0006 creates the private `resources` storage bucket.
+0011 must be its own run because Postgres will not use a new enum value in
+the same transaction that adds it. If 0001 to 0010 are already applied,
+start at 0011.
 
-Then prove the security rules hold by running
-`supabase/tests/rls_negative.sql` in the SQL editor. Every row of the result
-must say PASS.
+Then run the three test files the same way. Every row must say PASS:
+
+    supabase/tests/rls_negative.sql     borrowing and catalogue rules
+    supabase/tests/study_rls.sql        study notes, PDFs, AI tables
+    supabase/tests/roles_rls.sql        sign-up, approval, roles, admin actions
+
+The tests make their own throwaway rows and remove them at the end.
 
 ### 2. Edge functions
 
-    supabase functions deploy register
+    supabase functions deploy admin-users
     supabase functions deploy decide-request
+    supabase functions deploy study-generate
+    supabase functions delete register
+    supabase secrets set GEMINI_API_KEY=paste-your-free-key-here
 
-`register` must be callable without a session, since the caller has no
-account yet. `decide-request` requires one. Redeploy both after any change
-to `supabase/functions/`.
+`register` belonged to the old student-roll sign-up and is no longer used;
+deleting it closes that door. The Gemini key is free from aistudio.google.com
+and lives only in Supabase secrets.
 
-### 3. Roll
+### 3. Authentication settings (dashboard)
 
-    python scripts/generate_roll.py > roll.csv
+Brevo SMTP is already configured under Authentication -> Emails -> SMTP
+Settings. Leave that page exactly as it is.
 
-Sign in as an administrator and import it from the Student roll screen.
+- **Authentication -> Sign In / Providers -> Email**: Enable email provider
+  ON, Confirm email ON, Allow new users to sign up ON, Minimum password length
+  8 (the app asks for at least 8 too). Leaked password protection needs
+  the Pro plan, so it stays off on the free plan.
+- **Authentication -> Rate Limits**: keep the defaults. Supabase sends at
+  most one email to the same address every 60 seconds; the app shows a
+  countdown when this limit is hit instead of an error.
+- **Authentication -> URL Configuration**: Site URL is the address of the
+  web app with no slash at the end, for example `http://localhost:5000`
+  while testing, or the hosted address later. Redirect URLs:
+  `http://localhost:5000/**`, `zutlib://login-callback`,
+  `zutlib://reset-password` (plus the hosted address followed by `/**`
+  once there is one).
+- **Authentication -> Emails -> Templates**:
+  - Invite user: subject "You have been invited to ZutLib", body the whole
+    of `supabase/templates/invite.html`.
+  - Confirm signup: subject "Confirm your ZutLib email address", body the
+    whole of `supabase/templates/confirmation.html`.
 
-Staff are not on the roll, so their accounts are made in the dashboard
-(Authentication -> Users -> Add user, tick Auto Confirm User) and given a
-role with `scripts/create_staff.sql`.
+  The invite link must stay exactly as written in the file
+  (`{{ .SiteURL }}/?token_hash={{ .TokenHash }}&type=invite`): the app reads
+  that token and signs the new person in to choose a password.
 
-### 4. Seed the catalogue
+### 4. First administrator
 
-The real past papers are listed in `scripts/seed/resources_manifest.csv`
-(one row per file: title, type, department, course code, year, semester).
-The service role key goes in the terminal only, never in `.env`:
+There are no default accounts or passwords. Make the first administrator
+once:
+
+1. Authentication -> Users -> Add user -> Create new user, with your own
+   email and a strong password, Auto Confirm User ticked.
+2. Put that email in `scripts/bootstrap_accounts.sql`, paste it into the SQL
+   Editor and run it.
+
+Every other account is then made from the app: Admin -> Users -> Create
+account sends an invite email, and the person chooses their own password.
+The administrator never sees or sets anyone's password.
+
+### 5. Sample and real library data
+
+Sample data is for demonstration only. Every sample row is labelled
+"Sample" in the app, and every sample PDF starts with "SAMPLE PAPER. NOT AN
+OFFICIAL ZUT EXAMINATION." The service role key goes in the terminal only,
+never in `.env`:
 
     $env:SUPABASE_SERVICE_ROLE_KEY = "..."
-    dart run scripts/seed_resources.dart --dry-run
-    dart run scripts/seed_resources.dart
+    python scripts/sample_data.py seed          # about 40 books, 210 papers 2019 to 2025
+    python scripts/sample_data.py import-real   # seed/real-papers/ and seed/real-books.csv
+    python scripts/sample_data.py remove        # deletes every sample row and file
     Remove-Item Env:SUPABASE_SERVICE_ROLE_KEY
 
-Running it twice skips rows already catalogued.
+`seed` and `remove` can be run any number of times. Real files are named
+`DEPARTMENT_COURSE CODE_YEAR_exam_Course title.pdf` (or `_test_`), for
+example `ICT_ICT 2010_2023_exam_Programming in C.pdf`, and real books use
+the header `title,author,isbn,department,course_code,edition,total_copies`.
+Librarians can also do both from the app (Library -> Import books, Upload
+papers).
 
-### 5. App
+The older `scripts/seed_resources.dart` still loads the files listed in
+`scripts/seed/resources_manifest.csv`.
+
+### 6. App
 
     cp .env.example .env        # then paste your anon key
     flutter pub get
+    flutter analyze
+    flutter test
     flutter run -d chrome --web-port 5000   # web
     flutter run                             # Android
-    flutter test                            # unit tests
 
-On the web, account email links return to http://localhost:5000, so add
-`http://localhost:5000/**` to Authentication -> URL Configuration ->
-Redirect URLs next to `zutlib://login-callback` and `zutlib://reset-password`.
+Invite links open the web app, so run the web version for anyone accepting
+an invite.
+
+## Study assistant
+
+Notes, summaries, flashcards and quizzes for students, with optional AI
+help from the free Gemini API. Setup, demo script and security notes are in
+`docs/study-assistant/README.md`; every design choice is in
+`docs/study-assistant/DECISIONS.md`.
 
 ## How the security works
 
 Four rules, each enforced where it cannot be bypassed. Each claim below is
-tested by `supabase/tests/rls_negative.sql`.
+tested by the files in `supabase/tests/`.
 
 **Deny by default.** Row level security is on for every table. A table with
 RLS enabled and no matching policy returns no rows, so a forgotten policy is
 a refusal rather than a leak.
 
-**Eligibility precedes identity.** An account cannot exist unless the student
-number is on the roll, the surname matches it, and the record is unclaimed.
-The roll is not readable by any client; the check runs in an edge function
-under the service role.
+**Nobody chooses their own access.** Public sign-up always makes a student
+whose account is `pending`, whatever the request contains; a database
+trigger on new users decides this, not the app. A pending, rejected or
+suspended account can sign in but sees only the waiting screen, and every
+policy and edge function also checks that the account is `active`, so a
+modified app gets nothing either. Users cannot write their own role or
+status. Only the `admin-users` edge function changes them, after checking
+the caller is an active administrator, and every change is written to the
+audit log. An administrator cannot change their own account and the last
+active administrator cannot be removed.
 
 **Identity is copied, never typed.** The name, student number and programme
-on a borrowing request are written by a database trigger from the verified
-profile, whatever the client sends. Column privileges limit a student to
+on a borrowing request (name, department, email) are written by a database
+trigger from the verified profile, whatever the client sends. Column privileges limit a student to
 creating a request and cancelling it; they cannot edit their own profile,
 set a due date or change which item a request is for. An administrator
 cannot change their own role, and the last administrator cannot be demoted.
@@ -135,7 +204,7 @@ The database evaluates all of these on every write.
     lib/data         repositories, the only place that talks to Supabase
     lib/state        Riverpod providers
     lib/ui/widgets   shell, shared components, the four screen states
-    lib/ui/screens   auth, student, staff, admin
-    supabase         migrations, edge functions, security tests
-    scripts          roll generator, catalogue seed, staff accounts
+    lib/ui/screens   auth, student, staff (librarian), admin, study
+    supabase         migrations, edge functions, email templates, security tests
+    scripts          first administrator, sample and real data, study demo
     test             unit tests (flutter test)

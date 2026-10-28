@@ -7,7 +7,7 @@ import '../../models/resource.dart';
 final dateFmt = DateFormat('d MMM yyyy');
 final dateTimeFmt = DateFormat('d MMM yyyy, HH:mm');
 
-/// State reads as a small bold badge, not an icon a person has to decode —
+/// State reads as a small bold badge, not an icon a person has to decode;
 /// the same small-caps tag treatment as a catalogue's "Bestseller" label.
 class StatusChip extends StatelessWidget {
   const StatusChip(this.status, {super.key, this.dense = false});
@@ -50,6 +50,7 @@ IconData resourceTypeIcon(ResourceType type) => switch (type) {
       ResourceType.testPaper => Icons.quiz_outlined,
       ResourceType.lectureNotes => Icons.description_outlined,
       ResourceType.bookLink => Icons.menu_book_outlined,
+      ResourceType.book => Icons.local_library_outlined,
     };
 
 class TypeBadge extends StatelessWidget {
@@ -85,6 +86,7 @@ List<Color> resourceTypeGradient(ResourceType type) => switch (type) {
       ResourceType.testPaper => const [Color(0xFF0EA5E9), Color(0xFF0C4A6E)],
       ResourceType.lectureNotes => const [Color(0xFF6366F1), Color(0xFF312E81)],
       ResourceType.bookLink => const [Color(0xFF14B8A6), Color(0xFF1E40AF)],
+      ResourceType.book => const [Color(0xFF0D9488), Color(0xFF134E4A)],
     };
 
 /// Udemy-style tile: a rounded gradient "cover" with the course code as a
@@ -220,12 +222,31 @@ class ResourceGridCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     MetaLine([
                       resource.department,
-                      '${resource.academicYear}',
+                      if (resource.academicYear != null) '${resource.academicYear}',
+                      if (resource.author != null) resource.author!,
                       if (resource.semester != null) 'Sem ${resource.semester}',
                     ]),
                     const Spacer(),
                     Row(
                       children: [
+                        // Demonstration data is always labelled.
+                        if (resource.isSample) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Palette.neutralWash,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text('Sample',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: Palette.inkSoft,
+                                )),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
                         if (resource.isPhysical && available) ...[
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -279,8 +300,8 @@ class ResourceGridCard extends StatelessWidget {
 }
 
 /// A small circular button meant to overlay a [ResourceGridCard]'s
-/// thumbnail — a light scrim behind the icon keeps it legible regardless
-/// of the thumbnail colour under it.
+/// thumbnail (a light scrim behind the icon keeps it legible regardless
+/// of the thumbnail colour under it).
 class CardOverlayButton extends StatelessWidget {
   const CardOverlayButton({
     super.key,

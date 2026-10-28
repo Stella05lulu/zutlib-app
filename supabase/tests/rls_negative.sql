@@ -1,4 +1,4 @@
--- ZutLib — security tests (row level security, column privileges, triggers)
+-- ZutLib: security tests (row level security, column privileges, triggers)
 --
 -- HOW TO RUN: Supabase -> SQL Editor -> New query -> paste this whole file
 -- -> Run. The last result is a table of tests with PASS or FAIL.
@@ -62,11 +62,16 @@ insert into public.roll (student_number, surname, first_name, programme, departm
   ('ZLTEST01', 'Alpha', 'Ann', 'Test programme', 'ICT', 2023),
   ('ZLTEST02', 'Beta',  'Ben', 'Test programme', 'ICT', 2023);
 
+-- Since 0012 a trigger makes a pending profile for every new auth user,
+-- so the fixtures overwrite it with the account each test needs.
 insert into public.profiles (id, full_name, surname, student_number, programme, department, role) values
   ('00000000-0000-4000-8000-00000000000a', 'Ann Alpha', 'Alpha', 'ZLTEST01', 'Test programme', 'ICT', 'student'),
   ('00000000-0000-4000-8000-00000000000b', 'Ben Beta',  'Beta',  'ZLTEST02', 'Test programme', 'ICT', 'student'),
   ('00000000-0000-4000-8000-00000000000c', 'Lib Test',  'Test',  null, null, null, 'librarian'),
-  ('00000000-0000-4000-8000-00000000000d', 'Adm Test',  'Test',  null, null, null, 'admin');
+  ('00000000-0000-4000-8000-00000000000d', 'Adm Test',  'Test',  null, null, null, 'admin')
+on conflict (id) do update set full_name = excluded.full_name, surname = excluded.surname,
+  student_number = excluded.student_number, programme = excluded.programme,
+  department = excluded.department, role = excluded.role, status = 'active';
 
 insert into public.resources (id, title, type, department, course_code, academic_year,
                               is_physical, total_copies, available_copies, external_url) values
@@ -196,7 +201,7 @@ select pg_temp.t('L2', 'Librarian: approve by writing the status directly', 'row
   $q$update public.borrow_requests set status = 'approved' where id = '00000000-0000-4000-8000-0000000000b1'$q$);
 select pg_temp.t('L3', 'Librarian: more copies available than held', 'error',
   $q$update public.resources set available_copies = 99 where id = '00000000-0000-4000-8000-0000000000f1'$q$);
-select pg_temp.t('L4', 'Librarian: change someone''s role', 'rows=0',
+select pg_temp.t('L4', 'Librarian: change someone''s role', 'denied',
   $q$update public.profiles set role = 'admin' where id = '00000000-0000-4000-8000-00000000000a'$q$);
 select pg_temp.t('L5', 'Librarian: read the student roll', 'rows=0',
   $q$select count(*) from public.roll where student_number like 'ZLTEST%'$q$);
@@ -209,7 +214,9 @@ select set_config('request.jwt.claims',
 
 select pg_temp.t('M1+', 'Admin: read the student roll', 'rows=2',
   $q$select count(*) from public.roll where student_number like 'ZLTEST%'$q$);
-select pg_temp.t('M2+', 'Admin: make a student a librarian', 'rows=1',
+-- Since 0012 nobody edits profiles directly: role changes go through the
+-- admin-users Edge Function (admin_apply), which checks and logs them.
+select pg_temp.t('M2', 'Admin: change a role directly, bypassing the audit', 'error',
   $q$update public.profiles set role = 'librarian' where id = '00000000-0000-4000-8000-00000000000b'$q$);
 select pg_temp.t('M3', 'Admin: change their own role', 'error',
   $q$update public.profiles set role = 'student' where id = '00000000-0000-4000-8000-00000000000d'$q$);

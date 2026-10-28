@@ -85,6 +85,8 @@ class BorrowRequest {
     required this.status,
     required this.requestedAt,
     this.programme,
+    this.studentEmail,
+    this.studentDepartment,
     this.resourceTitle,
     this.courseCode,
     this.collectionDate,
@@ -100,6 +102,8 @@ class BorrowRequest {
   final String studentName;
   final String studentNumber;
   final String? programme;
+  final String? studentEmail;
+  final String? studentDepartment;
   final String? resourceTitle;
   final String? courseCode;
   final BorrowStatus status;
@@ -138,6 +142,8 @@ class BorrowRequest {
       studentName: (m['student_name'] ?? '') as String,
       studentNumber: (m['student_number'] ?? '') as String,
       programme: m['programme'] as String?,
+      studentEmail: m['student_email'] as String?,
+      studentDepartment: m['student_department'] as String?,
       resourceTitle: res is Map ? res['title'] as String? : null,
       courseCode: res is Map ? res['course_code'] as String? : null,
       status: BorrowStatusX.parse(m['status'] as String),

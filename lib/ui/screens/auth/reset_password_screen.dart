@@ -44,6 +44,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
       await authRepo.updatePassword(_password.text);
       if (!mounted) return;
       showMessage(context, 'Password changed. You are signed in.');
+      ref.invalidate(profileProvider);
       ref.read(passwordRecoveryProvider.notifier).state = false;
     } on Failure catch (f) {
       if (mounted) setState(() => _error = f.message);
