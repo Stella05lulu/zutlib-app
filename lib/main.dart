@@ -19,16 +19,15 @@ Future<void> main() async {
     anonKey: Env.supabaseAnonKey,
   );
   final prefs = await SharedPreferences.getInstance();
-  // An invite email links to the web app with ?token_hash=...&type=invite
-  // (supabase/templates/invite.html). The splash screen exchanges it for a
-  // session, then the person chooses their password.
-  final link = Uri.base.queryParameters;
-  final inviteToken =
-      kIsWeb && link['type'] == 'invite' ? link['token_hash'] : null;
+  // Invite, password reset and confirmation emails link to the web app with
+  // ?token_hash=...&type=... (supabase/templates/). The splash screen turns
+  // the link into a session. Unlike Supabase's default links, these work
+  // in any browser, not only the one the request was made from.
+  final emailLink = kIsWeb ? EmailLink.fromUri(Uri.base) : null;
   runApp(ProviderScope(
     overrides: [
       sharedPrefsProvider.overrideWithValue(prefs),
-      pendingInviteProvider.overrideWith((ref) => inviteToken),
+      pendingEmailLinkProvider.overrideWith((ref) => emailLink),
     ],
     child: const ZutLibApp(),
   ));

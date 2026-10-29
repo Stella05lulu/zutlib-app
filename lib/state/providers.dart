@@ -49,9 +49,36 @@ final homeRouteProvider = Provider<String>((ref) {
   };
 });
 
-/// The token from an invite link the app was opened with, waiting to be
-/// turned into a session (see main.dart and SplashScreen).
-final pendingInviteProvider = StateProvider<String?>((_) => null);
+/// An email link the app was opened with (invite, password reset or
+/// address confirmation), waiting to be turned into a session. See
+/// main.dart, SplashScreen and supabase/templates/.
+class EmailLink {
+  const EmailLink(this.type, this.tokenHash);
+
+  /// 'invite', 'recovery' or 'signup'.
+  final String type;
+  final String tokenHash;
+
+  /// The link types the email templates produce.
+  static const types = {'invite', 'recovery', 'signup'};
+
+  /// Supabase sends people back with ?error_code=... when a link it checked
+  /// itself (an older email) had expired or was already used.
+  static const failed = 'failed';
+
+  /// Reads ?token_hash=...&type=... (or Supabase's ?error_code=...) from the
+  /// address the app was opened at.
+  static EmailLink? fromUri(Uri uri) {
+    final error = uri.queryParameters['error_code'] ?? uri.queryParameters['error'];
+    if (error != null && error.isNotEmpty) return EmailLink(failed, error);
+    final type = uri.queryParameters['type'];
+    final hash = uri.queryParameters['token_hash'];
+    if (type == null || hash == null || hash.isEmpty || !types.contains(type)) return null;
+    return EmailLink(type, hash);
+  }
+}
+
+final pendingEmailLinkProvider = StateProvider<EmailLink?>((_) => null);
 
 /// True while the app was opened from a password reset link and the new
 /// password has not been set yet. The router keeps the person on the

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -123,15 +124,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 controller: _password,
                 obscureText: _obscure,
                 textInputAction: TextInputAction.next,
-                autofillHints: const [AutofillHints.newPassword],
-                decoration: InputDecoration(
+                autofillHints: kIsWeb ? null : const [AutofillHints.newPassword],
+                decoration: const InputDecoration(
                   labelText: 'Password',
                   helperText: 'At least 8 characters',
-                  suffixIcon: IconButton(
-                    tooltip: _obscure ? 'Show password' : 'Hide password',
-                    icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                    onPressed: () => setState(() => _obscure = !_obscure),
-                  ),
                 ),
                 validator: (v) => (v == null || v.length < 8) ? 'Use at least 8 characters' : null,
               ),
@@ -143,6 +139,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 decoration: const InputDecoration(labelText: 'Password again'),
                 validator: (v) => v != _password.text ? 'The two passwords are different' : null,
               ),
+              ShowPasswordToggle(hidden: _obscure, onChanged: (v) => setState(() => _obscure = v)),
               if (_error != null) ...[
                 const SizedBox(height: Gap.snug),
                 InlineNotice(_error!, error: true),

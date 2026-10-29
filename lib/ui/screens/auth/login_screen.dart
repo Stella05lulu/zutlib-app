@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -74,22 +75,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               TextFormField(
                 controller: _password,
                 obscureText: _obscure,
-                autofillHints: const [AutofillHints.password],
+                autofillHints: kIsWeb ? null : const [AutofillHints.password],
                 onFieldSubmitted: (_) => _submit(),
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: 'Password',
-                  prefixIcon: const Icon(Icons.lock_outline),
-                  suffixIcon: IconButton(
-                    icon: Icon(_obscure
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined),
-                    onPressed: () => setState(() => _obscure = !_obscure),
-                    tooltip: _obscure ? 'Show password' : 'Hide password',
-                  ),
+                  prefixIcon: Icon(Icons.lock_outline),
                 ),
                 validator: (v) => (v == null || v.isEmpty)
                     ? 'Enter your password' : null,
               ),
+              ShowPasswordToggle(hidden: _obscure, onChanged: (v) => setState(() => _obscure = v)),
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(

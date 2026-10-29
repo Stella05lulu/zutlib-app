@@ -15,7 +15,7 @@ Do these the day before, then tick them again an hour before.
 
 - [ ] All 13 migrations applied; `rls_negative.sql`, `study_rls.sql` and `roles_rls.sql` all PASS.
 - [ ] `admin-users`, `decide-request` and `study-generate` deployed; `register` deleted; `GEMINI_API_KEY` set.
-- [ ] Authentication: Confirm email ON, sign-ups ON, minimum password 8, Site URL is the web app address, redirect URLs added, both email templates pasted. SMTP settings untouched.
+- [ ] Authentication: Confirm email ON, sign-ups ON, minimum password 8, Site URL is the web app address, redirect URLs added, all three email templates pasted (invite, confirm signup, reset password). SMTP settings untouched.
 - [ ] You can sign in as your administrator (made with `scripts/bootstrap_accounts.sql`).
 - [ ] Admin -> Create account -> **Send test invite** to your own second inbox shows "sent", and the email arrives with the ZutLib wording.
 - [ ] A librarian account invited from the app, invite accepted, password chosen, signed in once.

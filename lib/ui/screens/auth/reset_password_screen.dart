@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -62,17 +63,10 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
         TextField(
           controller: _password,
           obscureText: _obscure,
-          autofillHints: const [AutofillHints.newPassword],
-          decoration: InputDecoration(
+          autofillHints: kIsWeb ? null : const [AutofillHints.newPassword],
+          decoration: const InputDecoration(
             labelText: 'New password',
-            prefixIcon: const Icon(Icons.lock_outline_rounded),
-            suffixIcon: IconButton(
-              tooltip: _obscure ? 'Show password' : 'Hide password',
-              icon: Icon(_obscure
-                  ? Icons.visibility_outlined
-                  : Icons.visibility_off_outlined),
-              onPressed: () => setState(() => _obscure = !_obscure),
-            ),
+            prefixIcon: Icon(Icons.lock_outline_rounded),
           ),
         ),
         const SizedBox(height: Insets.md),
@@ -85,6 +79,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
             prefixIcon: Icon(Icons.lock_outline_rounded),
           ),
         ),
+        ShowPasswordToggle(hidden: _obscure, onChanged: (v) => setState(() => _obscure = v)),
         if (_error != null) ...[
           const SizedBox(height: Insets.md),
           Text(_error!,

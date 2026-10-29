@@ -255,6 +255,10 @@ content_path = "./supabase/templates/invite.html"
 subject = "Confirm your ZutLib email address"
 content_path = "./supabase/templates/confirmation.html"
 
+[auth.email.template.recovery]
+subject = "Choose a new ZutLib password"
+content_path = "./supabase/templates/recovery.html"
+
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
 # enabled = true

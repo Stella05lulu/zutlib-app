@@ -24,12 +24,28 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   }
 
   Future<void> _decide() async {
-    // Opened from an invite email: turn the link into a session first.
-    final invite = ref.read(pendingInviteProvider);
-    if (invite != null) {
-      ref.read(pendingInviteProvider.notifier).state = null;
+    // Opened from an email link: turn it into a session first.
+    final link = ref.read(pendingEmailLinkProvider);
+    if (link != null && link.type == EmailLink.failed) {
+      ref.read(pendingEmailLinkProvider.notifier).state = null;
+      if (auth.currentSession == null) {
+        if (mounted) {
+          setState(() => _inviteError = link.tokenHash.contains('expired')
+              ? 'This email link has expired or was already used. Each link works once. '
+                  'Ask for a new one: "Forgot password?" for a password reset, or an '
+                  'administrator for an invite.'
+              : 'This email link could not be used. Ask for a new one and open it once.');
+        }
+        return;
+      }
+    } else if (link != null) {
+      ref.read(pendingEmailLinkProvider.notifier).state = null;
       try {
-        await authRepo.acceptInvite(invite);
+        await authRepo.openEmailLink(link.type, link.tokenHash);
+        if (link.type == 'recovery') {
+          // Signed in for one purpose only: choosing a new password.
+          ref.read(passwordRecoveryProvider.notifier).state = true;
+        }
         ref.invalidate(profileProvider);
       } on Failure catch (f) {
         // Reloading the page after accepting reuses the old link; if a
@@ -73,7 +89,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('This invite link did not work',
+                  Text('This link did not work',
                       style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: Insets.sm),
                   Text(error, style: Theme.of(context).textTheme.bodyMedium),

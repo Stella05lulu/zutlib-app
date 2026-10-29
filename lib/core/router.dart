@@ -55,6 +55,11 @@ final routerProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     initialLocation: '/',
+    // Always start at the splash screen, which decides where to go. Email
+    // links (password reset, invites) come back with extra text after the
+    // # in the address, such as tokens; read as a screen path, that text
+    // crashed the router.
+    overridePlatformDefaultLocation: true,
     refreshListenable: _Refresh(ref),
     redirect: (context, state) {
       final path = state.uri.path;

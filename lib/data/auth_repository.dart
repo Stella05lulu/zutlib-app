@@ -46,16 +46,29 @@ class AuthRepository {
     }
   }
 
-  /// Opens the session from an invite link. Invite emails point at the app
-  /// with ?token_hash=...&type=invite (see supabase/templates/invite.html).
-  Future<void> acceptInvite(String tokenHash) async {
+  /// Opens the session from an email link: an invite, a password reset or
+  /// a sign-up confirmation. The emails point at the app with
+  /// ?token_hash=...&type=... (see supabase/templates/).
+  Future<void> openEmailLink(String type, String tokenHash) async {
+    final otpType = switch (type) {
+      'invite' => OtpType.invite,
+      'recovery' => OtpType.recovery,
+      _ => OtpType.signup,
+    };
     try {
-      await auth.verifyOTP(type: OtpType.invite, tokenHash: tokenHash);
+      await auth.verifyOTP(type: otpType, tokenHash: tokenHash);
     } catch (e) {
       final f = Failure.from(e);
-      if (f.message.toLowerCase().contains('expired') || f.message.toLowerCase().contains('invalid')) {
-        throw const Failure('This invite link has expired or was already used. '
-            'Ask an administrator to send a new one.');
+      final m = f.message.toLowerCase();
+      if (m.contains('expired') || m.contains('invalid') || m.contains('not found')) {
+        throw Failure(switch (type) {
+          'invite' => 'This invite link has expired or was already used. '
+              'Ask an administrator to send a new one.',
+          'recovery' => 'This password reset link has expired or was already used. '
+              'Use "Forgot password?" on the sign-in page to get a new one.',
+          _ => 'This confirmation link has expired or was already used. '
+              'Try signing in; if your address is not confirmed yet, the app will offer a new link.',
+        });
       }
       throw f;
     }
@@ -120,6 +133,16 @@ class AuthRepository {
   Future<void> updatePassword(String password) async {
     try {
       await auth.updateUser(UserAttributes(password: password));
+    } on AuthException catch (e) {
+      // A reset must actually change the password.
+      if (_isSamePassword(e)) {
+        throw const Failure('Your new password must be different from your old password.');
+      }
+      throw Failure.from(e);
+    } catch (e) {
+      throw Failure.from(e);
+    }
+    try {
       // Choosing a password this way also finishes an unfinished invite, so
       // the app does not ask for a password a second time.
       await db.rpc('mark_password_set');

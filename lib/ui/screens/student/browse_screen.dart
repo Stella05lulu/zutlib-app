@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme.dart';
 import '../../../data/resource_repository.dart';
 import '../../../models/resource.dart';
+import '../../../models/profile.dart';
 import '../../../state/providers.dart';
 import '../../widgets/common.dart';
 import '../../widgets/glass.dart';
@@ -93,7 +94,9 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
                           if (profile != null) _WelcomeHeader(
                             name: profile.fullName,
                             initials: profile.initials,
-                            subtitle: profile.department ?? 'ZUT student',
+                            subtitle: profile.role == UserRole.student
+                                ? (profile.department ?? 'ZUT student')
+                                : 'ZUT ${profile.role.label.toLowerCase()}',
                           ),
                           if (!_bannerClosed) ...[
                             const SizedBox(height: Insets.md),

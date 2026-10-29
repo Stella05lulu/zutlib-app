@@ -85,10 +85,15 @@ Settings. Leave that page exactly as it is.
     of `supabase/templates/invite.html`.
   - Confirm signup: subject "Confirm your ZutLib email address", body the
     whole of `supabase/templates/confirmation.html`.
+  - Reset password: subject "Choose a new ZutLib password", body the whole
+    of `supabase/templates/recovery.html`.
 
-  The invite link must stay exactly as written in the file
-  (`{{ .SiteURL }}/?token_hash={{ .TokenHash }}&type=invite`): the app reads
-  that token and signs the new person in to choose a password.
+  Each link must stay exactly as written in the file
+  (`{{ .SiteURL }}/?token_hash={{ .TokenHash }}&type=...`). The app reads
+  that one-time token itself, so the link works in whichever browser opens
+  it. Supabase's default links only work in the browser the request was
+  made from, which is why an email opened from Gmail in another window used
+  to land on the sign-in page.
 
 ### 4. First administrator
 

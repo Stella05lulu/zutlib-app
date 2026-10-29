@@ -91,3 +91,26 @@ class AuthScaffold extends StatelessWidget {
     );
   }
 }
+
+/// "Show password" sits below the password boxes rather than inside them.
+/// On the web, a button inside a password box, together with switching the
+/// box between hidden and visible text, could leave the box unable to take
+/// typing until the page was reloaded.
+class ShowPasswordToggle extends StatelessWidget {
+  const ShowPasswordToggle({super.key, required this.hidden, required this.onChanged});
+
+  final bool hidden;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton.icon(
+        onPressed: () => onChanged(!hidden),
+        icon: Icon(hidden ? Icons.visibility_outlined : Icons.visibility_off_outlined, size: 18),
+        label: Text(hidden ? 'Show password' : 'Hide password'),
+      ),
+    );
+  }
+}
