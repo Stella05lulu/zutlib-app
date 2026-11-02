@@ -86,6 +86,15 @@ void main() {
       expect(withTopic.title, 'ICT 2010 Programming in C lecture notes 2024: Week 3: Pointers');
     });
 
+    test('editing finds the topic in a stored title, and nothing in a title written by hand', () {
+      const notes = PaperDraft(
+          department: 'ICT', courseCode: 'ICT 2010', courseTitle: 'Programming in C',
+          academicYear: 2024, kind: PaperKind.notes);
+      expect(notes.topicIn('ICT 2010 Programming in C lecture notes 2024: Week 3: Pointers'), 'Week 3: Pointers');
+      expect(notes.topicIn('ICT 2010 Programming in C lecture notes 2024'), isNull);
+      expect(notes.topicIn('Pointers, typed by hand'), isNull);
+    });
+
     test('a year out of range is refused', () {
       final parsed = parsePapersCsv('$kPaperCsvHeader\neee2021-2024.pdf,Engineering,EEE 2021,Electric Circuits,1850,test\n', files);
       expect(parsed.rows.single.problem, contains('academic year'));

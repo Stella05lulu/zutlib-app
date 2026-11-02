@@ -270,11 +270,19 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                   Tag(r.department),
                                   if (links && r.courseCode.isNotEmpty) Tag(r.courseCode),
                                 ],
-                                onTap: () => context.push('/resource/${r.id}'),
-                                trailing: IconButton(
-                                  tooltip: 'Delete',
-                                  icon: const Icon(Icons.delete_outline, size: 19),
-                                  onPressed: () => _deletePaper(r),
+                                onTap: () => context.push(r.type == ResourceType.bookLink
+                                    ? '/staff/links/${r.id}/edit'
+                                    : '/staff/papers/${r.id}/edit'),
+                                trailing: PopupMenuButton<String>(
+                                  tooltip: 'More',
+                                  onSelected: (v) {
+                                    if (v == 'view') context.push('/resource/${r.id}');
+                                    if (v == 'delete') _deletePaper(r);
+                                  },
+                                  itemBuilder: (_) => const [
+                                    PopupMenuItem(value: 'view', child: Text('See it as students do')),
+                                    PopupMenuItem(value: 'delete', child: Text('Delete')),
+                                  ],
                                 ),
                               ),
                     ]),

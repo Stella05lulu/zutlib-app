@@ -5,25 +5,60 @@ import 'package:go_router/go_router.dart';
 import '../../../core/failure.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/library_import.dart';
+import '../../../models/resource.dart';
 import '../../../state/providers.dart';
 import '../../widgets/study_widgets.dart';
 
-/// Add a recommended book: a reading-list entry for a course that links to
-/// the book online. Students find it under Recommended books on Explore.
-class LinkFormScreen extends ConsumerStatefulWidget {
-  const LinkFormScreen({super.key});
+/// Add a recommended book, or edit one when [linkId] is given: a
+/// reading-list entry for a course that links to the book online. Students
+/// find it under Recommended books on Explore.
+class LinkFormScreen extends ConsumerWidget {
+  const LinkFormScreen({super.key, this.linkId});
+  final String? linkId;
+
   @override
-  ConsumerState<LinkFormScreen> createState() => _LinkFormScreenState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final id = linkId;
+    if (id == null) return const StudyScope(child: _LinkForm(link: null));
+    final async = ref.watch(resourceProvider(id));
+    return StudyScope(
+      child: Builder(builder: (context) {
+        if (async.hasValue) return _LinkForm(link: async.requireValue);
+        return Scaffold(
+          appBar: const StudyTopBar(title: 'Edit recommended book'),
+          body: StudyPage(children: [
+            if (async.hasError)
+              StudyErrorState(message: '${async.error}', onRetry: () => ref.invalidate(resourceProvider(id)))
+            else
+              const Column(children: [
+                Bone(height: 52, radius: Radii.control),
+                SizedBox(height: Gap.page),
+                Bone(height: 52, radius: Radii.control),
+                SizedBox(height: Gap.page),
+                Bone(width: 220, height: 52, radius: Radii.control),
+              ]),
+          ]),
+        );
+      }),
+    );
+  }
 }
 
-class _LinkFormScreenState extends ConsumerState<LinkFormScreen> {
+class _LinkForm extends ConsumerStatefulWidget {
+  const _LinkForm({required this.link});
+  final Resource? link;
+  @override
+  ConsumerState<_LinkForm> createState() => _LinkFormState();
+}
+
+class _LinkFormState extends ConsumerState<_LinkForm> {
   final _form = GlobalKey<FormState>();
-  final _title = TextEditingController();
-  final _author = TextEditingController();
-  final _course = TextEditingController();
-  final _year = TextEditingController(text: '${DateTime.now().year}');
-  final _url = TextEditingController();
-  String? _department;
+  late final _title = TextEditingController(text: widget.link?.title ?? '');
+  late final _author = TextEditingController(text: widget.link?.author ?? '');
+  late final _course = TextEditingController(text: widget.link?.courseCode ?? '');
+  late final _year = TextEditingController(text: '${widget.link?.academicYear ?? DateTime.now().year}');
+  late final _url = TextEditingController(text: widget.link?.externalUrl ?? '');
+  late String? _department = kLibraryDepartments.contains(widget.link?.department) ? widget.link!.department : null;
   bool _busy = false;
   String? _error;
 
@@ -42,14 +77,21 @@ class _LinkFormScreenState extends ConsumerState<LinkFormScreen> {
       _error = null;
     });
     try {
-      await libraryRepo.createLink(LinkDraft(
+      final draft = LinkDraft(
         title: _title.text.trim(),
         author: _author.text.trim(),
         department: _department!,
         courseCode: _course.text.trim(),
         academicYear: int.parse(_year.text.trim()),
         url: _url.text.trim(),
-      ));
+      );
+      final existing = widget.link;
+      if (existing == null) {
+        await libraryRepo.createLink(draft);
+      } else {
+        await libraryRepo.updateLink(existing.id, draft);
+        ref.invalidate(resourceProvider(existing.id));
+      }
       if (!mounted) return;
       refreshCatalogue(ref);
       ref.invalidate(facetsProvider);
@@ -67,7 +109,7 @@ class _LinkFormScreenState extends ConsumerState<LinkFormScreen> {
     return StudyScope(
       child: Scaffold(
         appBar: StudyTopBar(
-          title: 'Add a recommended book',
+          title: widget.link == null ? 'Add a recommended book' : 'Edit recommended book',
           actions: [
             Padding(
               padding: const EdgeInsets.only(right: Gap.tight),
@@ -78,6 +120,10 @@ class _LinkFormScreenState extends ConsumerState<LinkFormScreen> {
         body: Form(
           key: _form,
           child: StudyPage(children: [
+            if (widget.link?.isSample ?? false) ...[
+              const InlineNotice('This is sample data, used for demonstrations.'),
+              const SizedBox(height: Gap.page),
+            ],
             if (_error != null) ...[
               InlineNotice(_error!, error: true),
               const SizedBox(height: Gap.page),

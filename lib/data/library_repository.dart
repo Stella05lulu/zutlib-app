@@ -68,6 +68,37 @@ class LibraryRepository {
     }
   }
 
+  /// Changes a paper's or set of notes' details. The PDF stays where it
+  /// is; only what describes it changes.
+  Future<void> updatePaper(String id, PaperDraft paper) async {
+    final problems = paper.problems();
+    if (problems.isNotEmpty) throw Failure('Check the form: ${problems.join('; ')}.');
+    final row = paper.toRow('')
+      ..remove('file_path')
+      ..remove('is_physical')
+      ..remove('total_copies')
+      ..remove('available_copies');
+    try {
+      await db.from('resources').update(row).eq('id', id);
+    } catch (e) {
+      throw Failure.from(e);
+    }
+  }
+
+  Future<void> updateLink(String id, LinkDraft link) async {
+    final problems = link.problems();
+    if (problems.isNotEmpty) throw Failure('Check the form: ${problems.join('; ')}.');
+    final row = link.toRow()
+      ..remove('is_physical')
+      ..remove('total_copies')
+      ..remove('available_copies');
+    try {
+      await db.from('resources').update(row).eq('id', id);
+    } catch (e) {
+      throw Failure.from(e);
+    }
+  }
+
   /// Changes a book's details. Copy counts change separately, through
   /// [setCopies].
   Future<void> updateBook(String id, BookDraft book) async {
