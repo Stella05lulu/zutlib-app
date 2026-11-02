@@ -123,8 +123,7 @@ class _SingleUploadState extends ConsumerState<_SingleUpload> {
     try {
       await libraryRepo.uploadPaper(paper, bytes, file.name);
       if (!mounted) return;
-      ref.invalidate(libraryItemsProvider);
-      ref.invalidate(searchProvider);
+      refreshCatalogue(ref);
       ref.invalidate(facetsProvider);
       setState(() {
         _message = '${paper.title} was uploaded.';
@@ -292,8 +291,7 @@ class _BulkUploadState extends ConsumerState<_BulkUpload> {
     setState(() => _busy = true);
     final report = await libraryRepo.uploadPapers(_rows, _files);
     if (!mounted) return;
-    ref.invalidate(libraryItemsProvider);
-    ref.invalidate(searchProvider);
+    refreshCatalogue(ref);
     ref.invalidate(facetsProvider);
     setState(() {
       _report = report;

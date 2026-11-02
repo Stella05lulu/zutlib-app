@@ -95,8 +95,7 @@ class _BookFormState extends ConsumerState<_BookForm> {
         ref.invalidate(resourceProvider(existing.id));
       }
       if (!mounted) return;
-      ref.invalidate(libraryItemsProvider);
-      ref.invalidate(searchProvider);
+      refreshCatalogue(ref);
       context.pop();
     } on FormatException catch (e) {
       if (mounted) setState(() => _error = e.message);

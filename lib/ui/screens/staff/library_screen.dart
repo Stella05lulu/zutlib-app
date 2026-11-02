@@ -44,8 +44,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     try {
       await action();
       if (!mounted) return;
-      ref.invalidate(libraryItemsProvider);
-      ref.invalidate(searchProvider);
+      refreshCatalogue(ref);
       _show(done, false);
     } on Failure catch (f) {
       if (mounted) _show(f.message, true);
@@ -200,61 +199,78 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   InlineNotice(_message!, error: _isError, onClose: () => setState(() => _message = null)),
                 ],
                 const SizedBox(height: Gap.snug),
-                StudyAsync<List<Resource>>(
+                StudyAsync<SearchPage>(
                   value: items,
                   onRetry: () => ref.invalidate(libraryItemsProvider),
                   skeleton: const RowsSkeleton(rows: 6),
-                  isEmpty: (v) => v.isEmpty,
+                  isEmpty: (v) => v.items.isEmpty,
                   empty: StudyEmptyState(books
                       ? 'No books match. Add one, or import a CSV of books.'
                       : 'No papers match. Upload a PDF, or several at once with a CSV.'),
-                  data: (list) => RowGroup(children: [
-                    for (final r in list)
-                      books
-                          ? StudyRow(
-                              title: r.title,
-                              detail: [r.author ?? '', if (r.edition != null) '${r.edition} edition'].join(', '),
-                              detailLines: 1,
-                              meta: '${r.availableCopies}/${r.totalCopies} on shelf',
-                              tags: [
-                                if (r.isSample) const Tag('Sample', sky: true),
-                                if (r.isRetired) const Tag('Retired'),
-                                Tag(r.department),
-                                if (r.courseCode.isNotEmpty) Tag(r.courseCode),
-                              ],
-                              onTap: () => context.push('/staff/books/${r.id}/edit'),
-                              trailing: PopupMenuButton<String>(
-                                tooltip: 'More',
-                                onSelected: (v) {
-                                  if (v == 'copies') _changeCopies(r);
-                                  if (v == 'retire') _retire(r);
-                                  if (v == 'restore') {
-                                    _run('${r.title} is back in the catalogue.', () => libraryRepo.restore(r.id));
-                                  }
-                                },
-                                itemBuilder: (_) => [
-                                  const PopupMenuItem(value: 'copies', child: Text('Change copy count')),
-                                  if (!r.isRetired) const PopupMenuItem(value: 'retire', child: Text('Retire')),
-                                  if (r.isRetired) const PopupMenuItem(value: 'restore', child: Text('Bring back')),
+                  data: (page) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    RowGroup(children: [
+                      for (final r in page.items)
+                        books
+                            ? StudyRow(
+                                title: r.title,
+                                detail: [r.author ?? '', if (r.edition != null) '${r.edition} edition'].join(', '),
+                                detailLines: 1,
+                                meta: '${r.availableCopies}/${r.totalCopies} on shelf',
+                                tags: [
+                                  if (r.isSample) const Tag('Sample', sky: true),
+                                  if (r.isRetired) const Tag('Retired'),
+                                  Tag(r.department),
+                                  if (r.courseCode.isNotEmpty) Tag(r.courseCode),
                                 ],
+                                onTap: () => context.push('/staff/books/${r.id}/edit'),
+                                trailing: PopupMenuButton<String>(
+                                  tooltip: 'More',
+                                  onSelected: (v) {
+                                    if (v == 'copies') _changeCopies(r);
+                                    if (v == 'retire') _retire(r);
+                                    if (v == 'restore') {
+                                      _run('${r.title} is back in the catalogue.', () => libraryRepo.restore(r.id));
+                                    }
+                                  },
+                                  itemBuilder: (_) => [
+                                    const PopupMenuItem(value: 'copies', child: Text('Change copy count')),
+                                    if (!r.isRetired) const PopupMenuItem(value: 'retire', child: Text('Retire')),
+                                    if (r.isRetired) const PopupMenuItem(value: 'restore', child: Text('Bring back')),
+                                  ],
+                                ),
+                              )
+                            : StudyRow(
+                                title: r.title,
+                                detail: r.courseTitle,
+                                detailLines: 1,
+                                meta: [r.type.label, if (r.academicYear != null) '${r.academicYear}'].join('  /  '),
+                                tags: [
+                                  if (r.isSample) const Tag('Sample', sky: true),
+                                  Tag(r.department),
+                                ],
+                                onTap: () => context.push('/resource/${r.id}'),
+                                trailing: IconButton(
+                                  tooltip: 'Delete paper',
+                                  icon: const Icon(Icons.delete_outline, size: 19),
+                                  onPressed: () => _deletePaper(r),
+                                ),
                               ),
-                            )
-                          : StudyRow(
-                              title: r.title,
-                              detail: r.courseTitle,
-                              detailLines: 1,
-                              meta: [r.type.label, if (r.academicYear != null) '${r.academicYear}'].join('  /  '),
-                              tags: [
-                                if (r.isSample) const Tag('Sample', sky: true),
-                                Tag(r.department),
-                              ],
-                              onTap: () => context.push('/resource/${r.id}'),
-                              trailing: IconButton(
-                                tooltip: 'Delete paper',
-                                icon: const Icon(Icons.delete_outline, size: 19),
-                                onPressed: () => _deletePaper(r),
-                              ),
-                            ),
+                    ]),
+                    if (page.hasMore) ...[
+                      const SizedBox(height: Gap.snug),
+                      Text('Showing the first ${page.items.length}. Search to narrow the list, or show more.',
+                          style: t.bodySmall),
+                      const SizedBox(height: Gap.tight),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: OutlinedButton(
+                          onPressed: items.isLoading
+                              ? null
+                              : () => ref.read(libraryLimitProvider.notifier).state += libraryPageSize,
+                          child: Text(items.isLoading ? 'Loading' : 'Show more'),
+                        ),
+                      ),
+                    ],
                   ]),
                 ),
               ],

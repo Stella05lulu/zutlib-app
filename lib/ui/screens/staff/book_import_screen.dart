@@ -48,8 +48,7 @@ class _BookImportScreenState extends ConsumerState<BookImportScreen> {
     setState(() => _busy = true);
     final report = await libraryRepo.importBooks(_rows);
     if (!mounted) return;
-    ref.invalidate(libraryItemsProvider);
-    ref.invalidate(searchProvider);
+    refreshCatalogue(ref);
     setState(() {
       _report = report;
       _busy = false;
