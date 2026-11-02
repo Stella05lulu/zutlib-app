@@ -105,7 +105,14 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
 
   Future<void> _deletePaper(Resource paper) async {
     final ok = await confirmDelete(context,
-        what: 'this paper', consequence: 'The PDF is removed from storage too. This cannot be undone.');
+        what: switch (paper.type) {
+          ResourceType.lectureNotes => 'these lecture notes',
+          ResourceType.bookLink => 'this recommended book',
+          _ => 'this paper',
+        },
+        consequence: paper.filePath != null
+            ? 'The PDF is removed from storage too. This cannot be undone.'
+            : 'This cannot be undone.');
     if (!ok) return;
     await _run('${paper.title} was deleted.', () => libraryRepo.deletePaper(paper));
   }
@@ -116,6 +123,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     final showRetired = ref.watch(libraryShowRetiredProvider);
     final items = ref.watch(libraryItemsProvider);
     final books = tab == 1;
+    final links = tab == 2;
 
     return StudyScope(
       child: Builder(builder: (context) {
@@ -138,25 +146,30 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                 const SizedBox(height: Gap.tight),
                 Text('Library', style: t.headlineSmall),
                 const SizedBox(height: Gap.hair + 2),
-                Text('Past papers and books. Items marked Sample are demonstration data.', style: t.bodyMedium),
+                Text('Past papers, lecture notes and books. Items marked Sample are demonstration data.',
+                    style: t.bodyMedium),
                 const SizedBox(height: Gap.page),
                 Container(
                   decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.line))),
-                  child: Row(children: [
-                    for (var i = 0; i < 2; i++)
-                      InkWell(
-                        onTap: () => ref.read(libraryTabProvider.notifier).state = i,
-                        child: Container(
-                          padding: const EdgeInsets.fromLTRB(2, Gap.snug, 2, Gap.snug - 2),
-                          margin: const EdgeInsets.only(right: Gap.page + 2),
-                          decoration: BoxDecoration(
-                            border: Border(bottom: BorderSide(color: tab == i ? c.accent : c.canvas, width: 2)),
+                  // Three tabs can be wider than a small phone.
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(children: [
+                      for (var i = 0; i < 3; i++)
+                        InkWell(
+                          onTap: () => ref.read(libraryTabProvider.notifier).state = i,
+                          child: Container(
+                            padding: const EdgeInsets.fromLTRB(2, Gap.snug, 2, Gap.snug - 2),
+                            margin: const EdgeInsets.only(right: Gap.page + 2),
+                            decoration: BoxDecoration(
+                              border: Border(bottom: BorderSide(color: tab == i ? c.accent : c.canvas, width: 2)),
+                            ),
+                            child: Text(['Papers and notes', 'Books', 'Recommended'][i],
+                                style: t.titleSmall?.copyWith(color: tab == i ? c.ink : c.inkFaint)),
                           ),
-                          child: Text(i == 0 ? 'Past papers' : 'Books',
-                              style: t.titleSmall?.copyWith(color: tab == i ? c.ink : c.inkFaint)),
                         ),
-                      ),
-                  ]),
+                    ]),
+                  ),
                 ),
                 const SizedBox(height: Gap.page),
                 Wrap(spacing: Gap.tight, runSpacing: Gap.tight, children: [
@@ -170,18 +183,24 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                       onPressed: () => context.push('/staff/books/import'),
                       child: const Text('Import books from CSV'),
                     ),
-                  ] else
+                  ] else if (links)
+                    FilledButton.icon(
+                      onPressed: () => context.push('/staff/links/new'),
+                      icon: const Icon(Icons.add_link, size: 18),
+                      label: const Text('Add a recommended book'),
+                    )
+                  else
                     FilledButton.icon(
                       onPressed: () => context.push('/staff/papers/upload'),
                       icon: const Icon(Icons.upload_file, size: 18),
-                      label: const Text('Upload papers'),
+                      label: const Text('Upload papers or notes'),
                     ),
                 ]),
                 const SizedBox(height: Gap.page),
                 TextField(
                   controller: _search,
                   decoration: InputDecoration(
-                    hintText: books ? 'Search by title, author or course' : 'Search by title or course',
+                    hintText: books || links ? 'Search by title, author or course' : 'Search by title or course',
                     prefixIcon: const Icon(Icons.search, size: 20),
                   ),
                   onSubmitted: (v) => ref.read(libraryQueryProvider.notifier).state = v,
@@ -204,9 +223,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   onRetry: () => ref.invalidate(libraryItemsProvider),
                   skeleton: const RowsSkeleton(rows: 6),
                   isEmpty: (v) => v.items.isEmpty,
-                  empty: StudyEmptyState(books
-                      ? 'No books match. Add one, or import a CSV of books.'
-                      : 'No papers match. Upload a PDF, or several at once with a CSV.'),
+                  empty: StudyEmptyState(switch (tab) {
+                    1 => 'No books match. Add one, or import a CSV of books.',
+                    2 => 'No recommended books match. Add one with a link to where students can find it.',
+                    _ => 'No papers or notes match. Upload a PDF, or several at once with a CSV.',
+                  }),
                   data: (page) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                     RowGroup(children: [
                       for (final r in page.items)
@@ -241,16 +262,17 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                               )
                             : StudyRow(
                                 title: r.title,
-                                detail: r.courseTitle,
+                                detail: r.courseTitle ?? r.author,
                                 detailLines: 1,
                                 meta: [r.type.label, if (r.academicYear != null) '${r.academicYear}'].join('  /  '),
                                 tags: [
                                   if (r.isSample) const Tag('Sample', sky: true),
                                   Tag(r.department),
+                                  if (links && r.courseCode.isNotEmpty) Tag(r.courseCode),
                                 ],
                                 onTap: () => context.push('/resource/${r.id}'),
                                 trailing: IconButton(
-                                  tooltip: 'Delete paper',
+                                  tooltip: 'Delete',
                                   icon: const Icon(Icons.delete_outline, size: 19),
                                   onPressed: () => _deletePaper(r),
                                 ),

@@ -67,12 +67,23 @@ void main() {
       expect(parsed.rows[0].value!.toRow('x.pdf')['type'], 'past_paper');
       expect(parsed.rows[1].problem, contains('no picked PDF'));
       expect(parsed.rows[2].problem, contains('twice'));
-      expect(parsed.rows[3].problem, contains('exam or test'));
+      expect(parsed.rows[3].problem, contains('exam, test or notes'));
     });
 
     test('a test paper is stored as a test paper', () {
       final parsed = parsePapersCsv('$kPaperCsvHeader\neee2021-2024.pdf,Engineering,EEE 2021,Electric Circuits,2024,test\n', files);
       expect(parsed.rows.single.value!.toRow('p.pdf')['type'], 'test_paper');
+    });
+
+    test('lecture notes are stored as lecture notes, with their topic in the title', () {
+      final parsed = parsePapersCsv('$kPaperCsvHeader\neee2021-2024.pdf,Engineering,EEE 2021,Electric Circuits,2024,notes\n', files);
+      final notes = parsed.rows.single.value!;
+      expect(notes.toRow('n.pdf')['type'], 'lecture_notes');
+      expect(notes.title, 'EEE 2021 Electric Circuits lecture notes 2024');
+      const withTopic = PaperDraft(
+          department: 'ICT', courseCode: 'ICT 2010', courseTitle: 'Programming in C',
+          academicYear: 2024, kind: PaperKind.notes, topic: 'Week 3: Pointers');
+      expect(withTopic.title, 'ICT 2010 Programming in C lecture notes 2024: Week 3: Pointers');
     });
 
     test('a year out of range is refused', () {
@@ -124,6 +135,26 @@ void main() {
         'academic_year': 2023, 'file_path': 'ICT/ICT2010/x.PDF',
       });
       expect(r.hasPdf, isTrue);
+    });
+  });
+
+  group('Recommended books', () {
+    LinkDraft link(String url) => LinkDraft(
+        title: 'The C Programming Language', department: 'ICT', courseCode: 'ICT 2010',
+        academicYear: 2024, url: url, author: 'Kernighan and Ritchie');
+
+    test('a web address is accepted and stored as a book link', () {
+      final l = link('https://example.org/c-book');
+      expect(l.problems(), isEmpty);
+      expect(l.toRow()['type'], 'book_link');
+      expect(l.toRow()['external_url'], 'https://example.org/c-book');
+      expect(l.toRow()['is_physical'], isFalse);
+    });
+
+    test('anything but an http or https address is refused', () {
+      for (final bad in ['', 'example.org', 'javascript:alert(1)', 'ftp://example.org/x', 'https://']) {
+        expect(link(bad).problems(), isNotEmpty, reason: bad);
+      }
     });
   });
 }

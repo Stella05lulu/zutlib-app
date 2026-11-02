@@ -12,8 +12,8 @@ import '../../../data/library_repository.dart';
 import '../../../state/providers.dart';
 import '../../widgets/study_widgets.dart';
 
-/// Upload past papers: one PDF with its details, or many PDFs at once with
-/// a CSV that describes each of them.
+/// Upload past papers and lecture notes: one PDF with its details, or many
+/// PDFs at once with a CSV that describes each of them.
 class PaperUploadScreen extends ConsumerStatefulWidget {
   const PaperUploadScreen({super.key});
   @override
@@ -29,7 +29,7 @@ class _PaperUploadScreenState extends ConsumerState<PaperUploadScreen> {
       child: Builder(builder: (context) {
         final c = StudyColors.of(context);
         return Scaffold(
-          appBar: const StudyTopBar(title: 'Upload papers'),
+          appBar: const StudyTopBar(title: 'Upload papers and notes'),
           body: StudyPage(children: [
             Container(
               decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.line))),
@@ -44,7 +44,7 @@ class _PaperUploadScreenState extends ConsumerState<PaperUploadScreen> {
                         border: Border(
                             bottom: BorderSide(color: _bulk == (i == 1) ? c.accent : c.canvas, width: 2)),
                       ),
-                      child: Text(i == 0 ? 'One paper' : 'Many papers with a CSV',
+                      child: Text(i == 0 ? 'One PDF' : 'Many PDFs with a CSV',
                           style: Theme.of(context).textTheme.titleSmall?.copyWith(
                                 color: _bulk == (i == 1) ? c.ink : c.inkFaint,
                               )),
@@ -73,6 +73,7 @@ class _SingleUploadState extends ConsumerState<_SingleUpload> {
   final _code = TextEditingController();
   final _courseTitle = TextEditingController();
   final _year = TextEditingController(text: '${DateTime.now().year}');
+  final _topic = TextEditingController();
   String? _department;
   PaperKind _kind = PaperKind.exam;
   PlatformFile? _file;
@@ -85,6 +86,7 @@ class _SingleUploadState extends ConsumerState<_SingleUpload> {
     _code.dispose();
     _courseTitle.dispose();
     _year.dispose();
+    _topic.dispose();
     super.dispose();
   }
 
@@ -119,6 +121,7 @@ class _SingleUploadState extends ConsumerState<_SingleUpload> {
       courseTitle: _courseTitle.text.trim(),
       academicYear: int.parse(_year.text.trim()),
       kind: _kind,
+      topic: _kind == PaperKind.notes ? _topic.text.trim() : null,
     );
     try {
       await libraryRepo.uploadPaper(paper, bytes, file.name);
@@ -129,6 +132,7 @@ class _SingleUploadState extends ConsumerState<_SingleUpload> {
         _message = '${paper.title} was uploaded.';
         _isError = false;
         _file = null;
+        _topic.clear();
       });
     } on Failure catch (f) {
       if (mounted) {
@@ -189,17 +193,31 @@ class _SingleUploadState extends ConsumerState<_SingleUpload> {
             validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter the course title' : null,
           ),
           const SizedBox(height: Gap.snug),
-          Text('Paper type', style: t.titleSmall),
+          Text('Type', style: t.titleSmall),
           const SizedBox(height: Gap.tight),
           SegmentedButton<PaperKind>(
             showSelectedIcon: false,
             segments: const [
               ButtonSegment(value: PaperKind.exam, label: Text('Examination')),
               ButtonSegment(value: PaperKind.test, label: Text('Test')),
+              ButtonSegment(value: PaperKind.notes, label: Text('Lecture notes')),
             ],
             selected: {_kind},
             onSelectionChanged: (s) => setState(() => _kind = s.first),
           ),
+          if (_kind == PaperKind.notes) ...[
+            const SizedBox(height: Gap.snug),
+            TextFormField(
+              controller: _topic,
+              maxLength: 120,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(
+                labelText: 'Topic',
+                hintText: 'Week 3: Pointers',
+                helperText: 'Optional. Added to the title so students can tell sets apart.',
+              ),
+            ),
+          ],
           const SizedBox(height: Gap.page),
           Align(
             alignment: Alignment.centerLeft,
@@ -218,7 +236,7 @@ class _SingleUploadState extends ConsumerState<_SingleUpload> {
             alignment: Alignment.centerLeft,
             child: FilledButton(
               onPressed: _busy ? null : _upload,
-              child: Text(_busy ? 'Uploading' : 'Upload paper'),
+              child: Text(_busy ? 'Uploading' : 'Upload'),
             ),
           ),
         ],
@@ -312,7 +330,7 @@ class _BulkUploadState extends ConsumerState<_BulkUpload> {
         SelectableText(kPaperCsvHeader, style: Mono.of(context, size: 13)),
         const SizedBox(height: Gap.tight),
         Text('"file" is the PDF\'s file name exactly, department is ICT, Engineering or Business, '
-            'and paper_type is exam or test.',
+            'and paper_type is exam, test or notes.',
             style: t.bodySmall),
         const SizedBox(height: Gap.page),
         Wrap(spacing: Gap.tight, runSpacing: Gap.tight, children: [
@@ -361,7 +379,7 @@ class _BulkUploadState extends ConsumerState<_BulkUpload> {
             alignment: Alignment.centerLeft,
             child: FilledButton(
               onPressed: _busy || good == 0 ? null : _upload,
-              child: Text(_busy ? 'Uploading' : 'Upload $good ${good == 1 ? 'paper' : 'papers'}'),
+              child: Text(_busy ? 'Uploading' : 'Upload $good ${good == 1 ? 'PDF' : 'PDFs'}'),
             ),
           ),
           if (_busy) ...[
