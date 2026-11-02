@@ -178,11 +178,18 @@ class PaperDraft {
   /// The PDF this row describes, in a bulk upload.
   final String? fileName;
 
+  /// The title without a topic.
+  String get baseTitle => '${courseCode.trim().toUpperCase()} ${courseTitle.trim()} ${kind.word} $academicYear';
+
   String get title {
-    final base = '${courseCode.trim().toUpperCase()} ${courseTitle.trim()} ${kind.word} $academicYear';
     final t = topic?.trim() ?? '';
-    return t.isEmpty ? base : '$base: $t';
+    return t.isEmpty ? baseTitle : '$baseTitle: $t';
   }
+
+  /// The topic inside a stored title made by [title], or null when the
+  /// title was written some other way.
+  String? topicIn(String storedTitle) =>
+      storedTitle.startsWith('$baseTitle: ') ? storedTitle.substring(baseTitle.length + 2) : null;
 
   List<String> problems() => [
         if (!kLibraryDepartments.contains(department)) 'department must be ICT, Engineering or Business',
