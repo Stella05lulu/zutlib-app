@@ -138,7 +138,22 @@ const kBookCsvHeader = 'title,author,isbn,department,course_code,edition,total_c
   return (rows: rows, fileProblem: null);
 }
 
-enum PaperKind { exam, test }
+enum PaperKind { exam, test, notes }
+
+extension PaperKindX on PaperKind {
+  /// The word used in a title, and in the CSV's paper_type column.
+  String get word => switch (this) {
+        PaperKind.exam => 'examination',
+        PaperKind.test => 'test',
+        PaperKind.notes => 'lecture notes',
+      };
+
+  String get wire => switch (this) {
+        PaperKind.exam => 'past_paper',
+        PaperKind.test => 'test_paper',
+        PaperKind.notes => 'lecture_notes',
+      };
+}
 
 class PaperDraft {
   const PaperDraft({
@@ -147,6 +162,7 @@ class PaperDraft {
     required this.courseTitle,
     required this.academicYear,
     required this.kind,
+    this.topic,
     this.fileName,
   });
 
@@ -156,11 +172,17 @@ class PaperDraft {
   final int academicYear;
   final PaperKind kind;
 
+  /// What a set of lecture notes covers, such as "Week 3: Pointers".
+  final String? topic;
+
   /// The PDF this row describes, in a bulk upload.
   final String? fileName;
 
-  String get title =>
-      '${courseCode.trim().toUpperCase()} ${courseTitle.trim()} ${kind == PaperKind.exam ? 'examination' : 'test'} $academicYear';
+  String get title {
+    final base = '${courseCode.trim().toUpperCase()} ${courseTitle.trim()} ${kind.word} $academicYear';
+    final t = topic?.trim() ?? '';
+    return t.isEmpty ? base : '$base: $t';
+  }
 
   List<String> problems() => [
         if (!kLibraryDepartments.contains(department)) 'department must be ICT, Engineering or Business',
@@ -169,11 +191,12 @@ class PaperDraft {
         if (courseTitle.trim().isEmpty) 'course title is missing',
         if (courseTitle.length > 200) 'course title is longer than 200 characters',
         if (academicYear < 1990 || academicYear > 2100) 'academic year must be between 1990 and 2100',
+        if ((topic ?? '').length > 120) 'topic is longer than 120 characters',
       ];
 
   Map<String, dynamic> toRow(String filePath) => {
         'title': title,
-        'type': kind == PaperKind.exam ? 'past_paper' : 'test_paper',
+        'type': kind.wire,
         'department': department,
         'course_code': courseCode.trim(),
         'course_title': courseTitle.trim(),
@@ -224,8 +247,14 @@ const kPaperCsvHeader = 'file,department,course_code,course_title,academic_year,
       rows.add(ImportRow.bad(line, 'academic year must be a number'));
       continue;
     }
-    if (type != 'exam' && type != 'test') {
-      rows.add(ImportRow.bad(line, 'paper type must be exam or test'));
+    final kind = switch (type) {
+      'exam' => PaperKind.exam,
+      'test' => PaperKind.test,
+      'notes' => PaperKind.notes,
+      _ => null,
+    };
+    if (kind == null) {
+      rows.add(ImportRow.bad(line, 'paper type must be exam, test or notes'));
       continue;
     }
     final paper = PaperDraft(
@@ -233,11 +262,67 @@ const kPaperCsvHeader = 'file,department,course_code,course_title,academic_year,
       courseCode: cell(r, cols[2]),
       courseTitle: cell(r, cols[3]),
       academicYear: year,
-      kind: type == 'exam' ? PaperKind.exam : PaperKind.test,
+      kind: kind,
       fileName: file,
     );
     final problems = paper.problems();
     rows.add(problems.isEmpty ? ImportRow.ok(line, paper) : ImportRow.bad(line, problems.join('; ')));
   }
   return (rows: rows, fileProblem: null);
+}
+
+/// Why [raw] cannot be a recommended book's link, or null when it can. Only
+/// web addresses are allowed, so a link can never run script in the app.
+String? linkProblem(String raw) {
+  final uri = Uri.tryParse(raw.trim());
+  if (raw.trim().isEmpty) return 'link is missing';
+  if (uri == null || !(uri.isScheme('http') || uri.isScheme('https')) || uri.host.isEmpty) {
+    return 'link must be a web address starting with https://';
+  }
+  if (raw.length > 2000) return 'link is longer than 2000 characters';
+  return null;
+}
+
+/// A recommended book: a reading-list entry for a course that links to the
+/// book online. The library holds no copy, so it cannot be borrowed.
+class LinkDraft {
+  const LinkDraft({
+    required this.title,
+    required this.department,
+    required this.courseCode,
+    required this.academicYear,
+    required this.url,
+    this.author,
+  });
+
+  final String title;
+  final String department;
+  final String courseCode;
+  final int academicYear;
+  final String url;
+  final String? author;
+
+  List<String> problems() => [
+        if (title.trim().isEmpty) 'title is missing',
+        if (title.length > 300) 'title is longer than 300 characters',
+        if ((author ?? '').length > 200) 'author is longer than 200 characters',
+        if (!kLibraryDepartments.contains(department)) 'department must be ICT, Engineering or Business',
+        if (courseCode.trim().isEmpty) 'course code is missing',
+        if (courseCode.length > 20) 'course code is longer than 20 characters',
+        if (academicYear < 1990 || academicYear > 2100) 'academic year must be between 1990 and 2100',
+        if (linkProblem(url) case final p?) p,
+      ];
+
+  Map<String, dynamic> toRow() => {
+        'title': title.trim(),
+        'type': 'book_link',
+        'department': department,
+        'course_code': courseCode.trim(),
+        'academic_year': academicYear,
+        'author': (author ?? '').trim().isEmpty ? null : author!.trim(),
+        'external_url': url.trim(),
+        'is_physical': false,
+        'total_copies': 0,
+        'available_copies': 0,
+      };
 }

@@ -213,7 +213,7 @@ void refreshUsers(WidgetRef ref) {
 }
 
 // ------------------------------------------------------------------ library (staff)
-/// 0 = past papers, 1 = books.
+/// 0 = papers and notes, 1 = books, 2 = recommended books.
 final libraryTabProvider = StateProvider<int>((_) => 0);
 final libraryQueryProvider = StateProvider<String>((_) => '');
 final libraryShowRetiredProvider = StateProvider<bool>((_) => false);
@@ -232,7 +232,11 @@ final libraryItemsProvider = FutureProvider.autoDispose<SearchPage>((ref) async 
   ref.watch(userIdProvider);
   final limit = ref.watch(libraryLimitProvider);
   final rows = await libraryRepo.list(
-    books: ref.watch(libraryTabProvider) == 1,
+    types: switch (ref.watch(libraryTabProvider)) {
+      1 => const [ResourceType.book],
+      2 => const [ResourceType.bookLink],
+      _ => const [ResourceType.pastPaper, ResourceType.testPaper, ResourceType.lectureNotes],
+    },
     query: ref.watch(libraryQueryProvider),
     includeRetired: ref.watch(libraryShowRetiredProvider),
     limit: limit + 1,

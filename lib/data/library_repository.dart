@@ -28,14 +28,14 @@ class LibraryRepository {
   /// The staff view of the catalogue. Unlike student search it can include
   /// retired books.
   Future<List<Resource>> list({
-    required bool books,
+    required List<ResourceType> types,
     String query = '',
     bool includeRetired = false,
     int limit = 100,
   }) async {
     try {
       var q = db.from('resources').select();
-      q = books ? q.eq('type', 'book') : q.inFilter('type', ['past_paper', 'test_paper', 'lecture_notes']);
+      q = q.inFilter('type', [for (final t in types) t.wire]);
       if (!includeRetired) q = q.isFilter('retired_at', null);
       final s = query.trim().replaceAll(RegExp(r'[,()%]'), ' ').trim();
       if (s.isNotEmpty) {
@@ -53,6 +53,16 @@ class LibraryRepository {
     if (problems.isNotEmpty) throw Failure('Check the form: ${problems.join('; ')}.');
     try {
       await db.from('resources').insert({...book.toRow(), 'uploaded_by': currentUserId});
+    } catch (e) {
+      throw Failure.from(e);
+    }
+  }
+
+  Future<void> createLink(LinkDraft link) async {
+    final problems = link.problems();
+    if (problems.isNotEmpty) throw Failure('Check the form: ${problems.join('; ')}.');
+    try {
+      await db.from('resources').insert({...link.toRow(), 'uploaded_by': currentUserId});
     } catch (e) {
       throw Failure.from(e);
     }
@@ -176,7 +186,8 @@ class LibraryRepository {
     return out;
   }
 
-  /// Removes a paper that nobody has borrowed (the database refuses if
+  /// Removes a paper, set of notes or recommended book that nobody has
+  /// borrowed (the database refuses if
   /// borrowing history points at it), then its file.
   Future<void> deletePaper(Resource r) async {
     try {

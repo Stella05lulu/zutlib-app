@@ -20,6 +20,7 @@ import '../ui/screens/shared/splash_screen.dart';
 import '../ui/screens/staff/book_form_screen.dart';
 import '../ui/screens/staff/book_import_screen.dart';
 import '../ui/screens/staff/library_screen.dart';
+import '../ui/screens/staff/link_form_screen.dart';
 import '../ui/screens/staff/paper_upload_screen.dart';
 import '../ui/screens/staff/request_detail_screen.dart';
 import '../ui/screens/staff/request_queue_screen.dart';
@@ -154,6 +155,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/staff/books/import', builder: (_, __) => const BookImportScreen()),
       GoRoute(path: '/staff/papers/upload', builder: (_, __) => const PaperUploadScreen()),
+      GoRoute(path: '/staff/links/new', builder: (_, __) => const LinkFormScreen()),
       GoRoute(path: '/admin/users/new', builder: (_, __) => const CreateAccountScreen()),
 
       // Study assistant screens open full screen, above the tab bar.
