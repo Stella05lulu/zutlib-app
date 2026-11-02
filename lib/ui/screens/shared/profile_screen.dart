@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/failure.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
 import '../../../models/profile.dart';
@@ -96,9 +97,15 @@ class ProfileScreen extends ConsumerWidget {
                           onTap: () async {
                             final email = auth.currentUser?.email;
                             if (email == null) return;
-                            await authRepo.sendPasswordReset(email);
-                            if (context.mounted) {
-                              showMessage(context, 'Reset link sent to $email.');
+                            try {
+                              await authRepo.sendPasswordReset(email);
+                              if (context.mounted) {
+                                showMessage(context, 'Reset link sent to $email.');
+                              }
+                            } on Failure catch (f) {
+                              if (context.mounted) {
+                                showMessage(context, f.message, isError: true);
+                              }
                             }
                           },
                         ),

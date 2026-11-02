@@ -12,6 +12,7 @@ import '../../../models/resource.dart';
 import '../../../state/providers.dart';
 import '../../../state/study_providers.dart';
 import '../../widgets/study_widgets.dart';
+import '../shared/pdf_viewer_screen.dart';
 
 /// One catalogue item. Papers open as a PDF through a link that expires
 /// after five minutes. Students can ask to borrow a physical copy, or turn
@@ -39,13 +40,14 @@ class _ResourceDetailScreenState extends ConsumerState<ResourceDetailScreen> {
   }
 
   Future<void> _open(Resource r) async {
-    try {
-      final url = r.externalUrl ?? await resourceRepo.signedUrl(r.filePath!, seconds: 300);
-      final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-      if (!ok) _show('Could not open that file on this device.', true);
-    } on Failure catch (f) {
-      _show(f.message, true);
+    if (r.externalUrl != null) {
+      final ok = await launchUrl(Uri.parse(r.externalUrl!), mode: LaunchMode.externalApplication);
+      if (!ok) _show('Could not open that link on this device.', true);
+      return;
     }
+    final error = await openPdf(context,
+        title: r.title, loadUrl: () => resourceRepo.signedUrl(r.filePath!, seconds: 300));
+    if (error != null) _show(error, true);
   }
 
   /// Makes a study note built on this PDF and opens it, ready for AI help.

@@ -166,8 +166,8 @@ class _RequestDetailScreenState extends ConsumerState<RequestDetailScreen> {
                       const SizedBox(width: 5),
                       Expanded(
                         child: Text(
-                          'Checked against the institutional roll when the '
-                          'account was created.',
+                          'Copied from the account an administrator '
+                          'approved, not typed by the student.',
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ),
