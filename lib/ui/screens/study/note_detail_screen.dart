@@ -3,13 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/failure.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/study.dart';
 import '../../../state/study_providers.dart';
 import '../../widgets/study_widgets.dart';
+import '../shared/pdf_viewer_screen.dart';
 import 'ai_panel.dart';
 import 'editor_sheets.dart';
 
@@ -388,13 +388,9 @@ class _PdfSourceState extends State<_PdfSource> {
   String? _error;
 
   Future<void> _open() async {
-    try {
-      final url = await studyRepo.pdfUrl(widget.note);
-      final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-      if (!ok && mounted) setState(() => _error = 'Could not open the PDF on this device.');
-    } on Failure catch (f) {
-      if (mounted) setState(() => _error = f.message);
-    }
+    final error = await openPdf(context,
+        title: widget.note.pdfLabel ?? widget.note.title, loadUrl: () => studyRepo.pdfUrl(widget.note));
+    if (mounted) setState(() => _error = error);
   }
 
   @override
