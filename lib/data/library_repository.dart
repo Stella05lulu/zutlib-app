@@ -31,6 +31,7 @@ class LibraryRepository {
     required bool books,
     String query = '',
     bool includeRetired = false,
+    int limit = 100,
   }) async {
     try {
       var q = db.from('resources').select();
@@ -40,7 +41,7 @@ class LibraryRepository {
       if (s.isNotEmpty) {
         q = q.or('title.ilike.%$s%,course_code.ilike.%$s%,author.ilike.%$s%,course_title.ilike.%$s%');
       }
-      final rows = await q.order('created_at', ascending: false).limit(200);
+      final rows = await q.order('created_at', ascending: false).limit(limit);
       return [for (final r in rows) Resource.fromMap(r)];
     } catch (e) {
       throw Failure.from(e);

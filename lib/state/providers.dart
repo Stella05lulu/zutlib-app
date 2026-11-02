@@ -94,25 +94,59 @@ final facetsProvider = FutureProvider<Facets>((ref) {
   return resourceRepo.facets(department: department);
 });
 
-final searchProvider = FutureProvider<List<Resource>>((ref) {
+/// One screenful of search results, and whether the database has more.
+class SearchPage {
+  const SearchPage(this.items, {required this.hasMore});
+  final List<Resource> items;
+  final bool hasMore;
+}
+
+const searchPageSize = 50;
+
+/// Search results arrive [searchPageSize] at a time. Changing the filters
+/// starts again from the first page; [SearchResults.loadMore] adds the next.
+class SearchResults extends AsyncNotifier<SearchPage> {
+  @override
+  Future<SearchPage> build() {
+    ref.watch(userIdProvider);
+    return _page(ref.watch(filtersProvider), 0);
+  }
+
+  /// Asks for one row more than a page, so the extra row says whether
+  /// another page exists without a separate count.
+  static Future<SearchPage> _page(ResourceFilters f, int offset) async {
+    final rows = await resourceRepo.search(f, limit: searchPageSize + 1, offset: offset);
+    return SearchPage(rows.take(searchPageSize).toList(), hasMore: rows.length > searchPageSize);
+  }
+
+  Future<void> loadMore() async {
+    final current = state.valueOrNull;
+    if (current == null || !current.hasMore) return;
+    final filters = ref.read(filtersProvider);
+    final next = await _page(filters, current.items.length);
+    // The filters changed while this page loaded; it belongs to an old search.
+    if (state.valueOrNull != current || ref.read(filtersProvider) != filters) return;
+    state = AsyncData(SearchPage([...current.items, ...next.items], hasMore: next.hasMore));
+  }
+}
+
+final searchProvider = AsyncNotifierProvider<SearchResults, SearchPage>(SearchResults.new);
+
+/// The Explore home: a few of each type, fetched per type so a type with
+/// few items still gets its shelf next to one with hundreds.
+final homeShelvesProvider = FutureProvider<Map<ResourceType, List<Resource>>>((ref) async {
   ref.watch(userIdProvider);
-  final filters = ref.watch(filtersProvider);
-  return resourceRepo.search(filters);
+  final lists = await Future.wait([
+    for (final type in ResourceType.values) resourceRepo.search(ResourceFilters(type: type), limit: 12),
+  ]);
+  return {
+    for (var i = 0; i < ResourceType.values.length; i++)
+      if (lists[i].isNotEmpty) ResourceType.values[i]: lists[i],
+  };
 });
 
 final resourceProvider =
     FutureProvider.family<Resource, String>((ref, id) => resourceRepo.byId(id));
-
-// ------------------------------------------------------------------ staff catalogue
-/// The staff Resources screen has its own search box, separate from the
-/// student Explore filters, and a higher limit.
-final staffQueryProvider = StateProvider<String>((_) => '');
-
-final staffResourcesProvider = FutureProvider<List<Resource>>((ref) {
-  ref.watch(userIdProvider);
-  final q = ref.watch(staffQueryProvider);
-  return resourceRepo.search(ResourceFilters(query: q), limit: 100);
-});
 
 // ------------------------------------------------------------------ borrow
 final myBorrowingProvider = FutureProvider<List<BorrowRequest>>((ref) {
@@ -184,13 +218,26 @@ final libraryTabProvider = StateProvider<int>((_) => 0);
 final libraryQueryProvider = StateProvider<String>((_) => '');
 final libraryShowRetiredProvider = StateProvider<bool>((_) => false);
 
-final libraryItemsProvider = FutureProvider.autoDispose<List<Resource>>((ref) {
+/// How many rows the staff list shows. Starts again at one page whenever
+/// the tab, search or retired filter changes.
+const libraryPageSize = 100;
+final libraryLimitProvider = StateProvider<int>((ref) {
+  ref.watch(libraryTabProvider);
+  ref.watch(libraryQueryProvider);
+  ref.watch(libraryShowRetiredProvider);
+  return libraryPageSize;
+});
+
+final libraryItemsProvider = FutureProvider.autoDispose<SearchPage>((ref) async {
   ref.watch(userIdProvider);
-  return libraryRepo.list(
+  final limit = ref.watch(libraryLimitProvider);
+  final rows = await libraryRepo.list(
     books: ref.watch(libraryTabProvider) == 1,
     query: ref.watch(libraryQueryProvider),
     includeRetired: ref.watch(libraryShowRetiredProvider),
+    limit: limit + 1,
   );
+  return SearchPage(rows.take(limit).toList(), hasMore: rows.length > limit);
 });
 
 /// Called after any write so every view showing the affected data refreshes.
@@ -198,8 +245,13 @@ void refreshBorrowing(WidgetRef ref) {
   ref.invalidate(myBorrowingProvider);
   ref.invalidate(queueProvider);
   ref.invalidate(overviewProvider);
-  ref.invalidate(searchProvider);
-  ref.invalidate(staffResourcesProvider);
   ref.invalidate(notificationsProvider);
+  refreshCatalogue(ref);
+}
+
+/// Called after the catalogue changes, so student and staff views agree.
+void refreshCatalogue(WidgetRef ref) {
+  ref.invalidate(searchProvider);
+  ref.invalidate(homeShelvesProvider);
   ref.invalidate(libraryItemsProvider);
 }

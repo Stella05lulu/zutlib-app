@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/failure.dart';
 import '../../../core/theme.dart';
 import '../../../data/resource_repository.dart';
 import '../../../models/resource.dart';
@@ -22,6 +23,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
   final _search = TextEditingController();
   Timer? _debounce;
   bool _bannerClosed = false;
+  bool _loadingMore = false;
 
   @override
   void initState() {
@@ -59,6 +61,17 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
 
   void _open(Resource r) => context.push('/resource/${r.id}');
 
+  Future<void> _loadMore() async {
+    setState(() => _loadingMore = true);
+    try {
+      await ref.read(searchProvider.notifier).loadMore();
+    } on Failure catch (f) {
+      if (mounted) showMessage(context, f.message, isError: true);
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final filters = ref.watch(filtersProvider);
@@ -73,6 +86,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
         child: RefreshIndicator(
           onRefresh: () async {
             ref.invalidate(searchProvider);
+            ref.invalidate(homeShelvesProvider);
             ref.invalidate(facetsProvider);
             await ref.read(searchProvider.future);
           },
@@ -157,7 +171,8 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
                     ),
                   ),
                 ],
-                data: (items) {
+                data: (page) {
+                  final items = page.items;
                   if (items.isEmpty) {
                     return [
                       SliverFillRemaining(
@@ -197,16 +212,17 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
                           padding: const EdgeInsets.fromLTRB(
                               Insets.md, Insets.lg, Insets.md, Insets.sm),
                           child: Text(
-                            '${items.length} '
-                            '${items.length == 1 ? "result" : "results"}',
+                            // More pages mean the true total is not known.
+                            '${items.length}${page.hasMore ? '+' : ''} '
+                            '${items.length == 1 && !page.hasMore ? "result" : "results"}',
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                         ),
                       ),
                     ),
                     SliverPadding(
-                      padding: EdgeInsets.fromLTRB(
-                          Insets.md, Insets.sm, Insets.md, bottomGap + 60),
+                      padding: EdgeInsets.fromLTRB(Insets.md, Insets.sm,
+                          Insets.md, page.hasMore ? Insets.lg : bottomGap + 60),
                       sliver: SliverGrid(
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: catalogGridColumns(width),
@@ -223,6 +239,18 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
                         ),
                       ),
                     ),
+                    if (page.hasMore)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.only(bottom: bottomGap + 60),
+                          child: Center(
+                            child: OutlinedButton(
+                              onPressed: _loadingMore ? null : _loadMore,
+                              child: Text(_loadingMore ? 'Loading' : 'Show more'),
+                            ),
+                          ),
+                        ),
+                      ),
                   ];
                 },
               ),
@@ -236,6 +264,10 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
   /// "Recently added" first, then one shelf per resource type that has
   /// anything in it.
   List<Widget> _shelves(List<Resource> items) {
+    // Each type is fetched on its own; until that arrives, group the first
+    // page of results instead.
+    final byType = ref.watch(homeShelvesProvider).valueOrNull ??
+        {for (final type in ResourceType.values) type: items.where((r) => r.type == type).toList()};
     final shelves = <Widget>[
       _Shelf(
         title: 'Recently added',
@@ -251,7 +283,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
       ResourceType.book: 'Library books',
     };
     for (final type in ResourceType.values) {
-      final ofType = items.where((r) => r.type == type).toList();
+      final ofType = byType[type] ?? const <Resource>[];
       if (ofType.isEmpty) continue;
       shelves.add(_Shelf(
         title: titles[type]!,
