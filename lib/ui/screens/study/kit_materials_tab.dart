@@ -9,6 +9,9 @@ import '../../../state/study_providers.dart';
 import '../../../study/practice.dart';
 import '../../widgets/study_widgets.dart';
 import '../shared/pdf_viewer_screen.dart';
+import '../../../state/plan_providers.dart';
+import '../../../study/planner.dart' show dateOnly, examCountdown;
+import '../plan/plan_sheet.dart';
 import 'kit_widgets.dart';
 
 /// The kit's front page: what it is built on, AI help, and a way into
@@ -76,8 +79,6 @@ class _KitMaterialsTabState extends ConsumerState<KitMaterialsTab> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('STUDY KIT', style: Mono.of(context, size: 11.5, weight: FontWeight.w600, color: on)),
-                    const SizedBox(height: Gap.hair),
                     Text(n.title,
                         style: t.headlineSmall?.copyWith(color: on, fontWeight: FontWeight.w700, fontSize: 26)),
                     const SizedBox(height: Gap.tight),
@@ -96,6 +97,8 @@ class _KitMaterialsTabState extends ConsumerState<KitMaterialsTab> {
           const SizedBox(height: Gap.snug),
           InlineNotice(_error!, error: true, onClose: () => setState(() => _error = null)),
         ],
+        const SizedBox(height: Gap.snug),
+        _PlanLink(noteId: n.id),
 
         // ---------------------------------------------------- AI
         if (kit.guide == null) ...[
@@ -286,6 +289,52 @@ class _AiAllowance extends ConsumerWidget {
           Text('${status.remaining} of ${status.dailyLimit} AI requests left today',
               style: Mono.of(context, size: 12, color: status.remaining == 0 ? c.danger : c.inkSoft)),
         ],
+      ),
+    );
+  }
+}
+
+/// "Exam in 5 days: view plan", or a way to plan this kit for an exam.
+class _PlanLink extends ConsumerWidget {
+  const _PlanLink({required this.noteId});
+  final String noteId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = StudyColors.of(context);
+    final t = Theme.of(context).textTheme;
+    final plan = ref.watch(planForKitProvider(noteId)).valueOrNull;
+    final upcoming = plan != null && !dateOnly(plan.examDate).isBefore(dateOnly(DateTime.now()));
+    return Material(
+      color: c.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.panel), side: BorderSide(color: c.line)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () async {
+          if (upcoming) {
+            await context.push('/plan/${plan.id}');
+          } else {
+            await showPlanSheet(context, noteId: noteId, existing: plan);
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: Gap.page - 4, vertical: Gap.snug),
+          child: Row(
+            children: [
+              Icon(Icons.event_note_outlined, color: c.accent),
+              const SizedBox(width: Gap.snug),
+              Expanded(
+                child: Text(
+                  upcoming
+                      ? '${examCountdown(plan.examDate, DateTime.now())}. See today\'s plan.'
+                      : 'Have an exam on this? Add it and get a day-by-day plan.',
+                  style: t.bodyLarge?.copyWith(color: c.ink),
+                ),
+              ),
+              Icon(Icons.chevron_right, color: c.inkFaint),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -4,10 +4,10 @@
 #
 #   1. builds an empty database with supabase_shim.sql and every migration
 #   2. runs the SQL security tests: rls_negative, study_rls, roles_rls,
-#      study_kits_rls
+#      study_kits_rls, planner_rls
 #   3. runs the last-copy race test
 #   4. starts PostgREST on that database and runs the Edge Function tests
-#      (study-generate and admin-users), including both end-to-end tests
+#      (study-generate, admin-users and push), including both end-to-end tests
 #
 # Needs Postgres 15 or newer (psql and a running server), PostgREST 12 and
 # Deno 2 on the PATH.
@@ -23,7 +23,7 @@ PGRST_PORT="${PGRST_PORT:-3010}"
 bash "$ROOT/supabase/tests/local/fresh_db.sh" "$DB"
 echo "migrations: all applied"
 
-for t in rls_negative study_rls roles_rls study_kits_rls; do
+for t in rls_negative study_rls roles_rls study_kits_rls planner_rls; do
   result="$(psql -q -d "$DB" -P pager=off -f "$ROOT/supabase/tests/$t.sql" 2>&1)"
   pass=$(grep -cE '\| PASS *$' <<<"$result" || true)
   fail=$(grep -cE '\| FAIL *$' <<<"$result" || true)
@@ -53,4 +53,5 @@ done
 export STUDY_E2E=1 PGRST_URL="http://127.0.0.1:$PGRST_PORT" JWT_SECRET="$JWT_SECRET" PSQL="psql -d $DB"
 deno test --allow-env --allow-net --allow-run \
   "$ROOT/supabase/functions/study-generate/tests/" \
-  "$ROOT/supabase/functions/admin-users/tests/"
+  "$ROOT/supabase/functions/admin-users/tests/" \
+  "$ROOT/supabase/functions/push/tests/"

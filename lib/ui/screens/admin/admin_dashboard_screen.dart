@@ -7,6 +7,9 @@ import '../../../core/theme/app_theme.dart';
 import '../../../data/admin_repository.dart';
 import '../../../state/providers.dart';
 import '../../widgets/study_widgets.dart';
+import '../../widgets/notification_bell.dart';
+import '../../../state/plan_providers.dart' show accountRepo;
+import '../../../data/account_repository.dart' show FeedbackItem;
 
 /// The administrator's overview: who is waiting, who is active, what the
 /// library holds, and the latest administrator actions. The counts come
@@ -39,7 +42,10 @@ class AdminDashboardScreen extends ConsumerWidget {
               onRefresh: refresh,
               children: [
                 const SizedBox(height: Gap.tight),
-                Text('Dashboard', style: t.headlineSmall),
+                Row(children: [
+                  Expanded(child: Text('Dashboard', style: t.headlineSmall)),
+                  const NotificationBell(),
+                ]),
                 const SizedBox(height: Gap.hair + 2),
                 Text('Accounts, the library and recent administrator actions.', style: t.bodyMedium),
                 const SizedBox(height: Gap.page),
@@ -56,6 +62,11 @@ class AdminDashboardScreen extends ConsumerWidget {
                     },
                     child: const Text('Review waiting students'),
                   ),
+                  OutlinedButton.icon(
+                    onPressed: () => context.push('/admin/reports'),
+                    icon: const Icon(Icons.insights_outlined, size: 18),
+                    label: const Text('Reports'),
+                  ),
                 ]),
                 StudyAsync<AdminOverview>(
                   value: overview,
@@ -71,6 +82,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                   ),
                   data: (o) => _Figures(o: o),
                 ),
+                const _FeedbackSection(),
                 const SectionLabel('Recent administrator actions'),
                 StudyAsync<List<AuditEntry>>(
                   value: audit,
@@ -164,6 +176,72 @@ class _Figure extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+final _feedbackProvider = FutureProvider.autoDispose<List<FeedbackItem>>((ref) => accountRepo.feedback(limit: 20));
+
+/// Feedback sent from Account, Send feedback: newest first, open ones on top.
+class _FeedbackSection extends ConsumerWidget {
+  const _FeedbackSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(_feedbackProvider);
+    final c = StudyColors.of(context);
+    final t = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SectionLabel('Feedback'),
+        StudyAsync<List<FeedbackItem>>(
+          value: async,
+          onRetry: () => ref.invalidate(_feedbackProvider),
+          skeleton: const RowsSkeleton(rows: 2, detail: false),
+          isEmpty: (v) => v.isEmpty,
+          empty: const StudyEmptyState('No feedback yet. Students and staff send it from Account.', compact: true),
+          data: (items) {
+            final sorted = [...items]..sort((a, b) => a.resolved == b.resolved ? 0 : (a.resolved ? 1 : -1));
+            return RowGroup(children: [
+              for (final f in sorted.take(10))
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(Gap.page - 4, Gap.snug, Gap.tight, Gap.snug),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(f.message,
+                                style: t.bodyLarge?.copyWith(color: f.resolved ? c.inkFaint : c.ink)),
+                            const SizedBox(height: 2),
+                            Text(
+                              [
+                                if (f.role != null) f.role!,
+                                studyDateTime.format(f.createdAt),
+                                if (f.appVersion != null) 'app ${f.appVersion}',
+                              ].join('  /  '),
+                              style: t.bodySmall,
+                            ),
+                          ],
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () async {
+                          await accountRepo.resolveFeedback(f.id, !f.resolved);
+                          ref.invalidate(_feedbackProvider);
+                        },
+                        child: Text(f.resolved ? 'Reopen' : 'Mark done'),
+                      ),
+                    ],
+                  ),
+                ),
+            ]);
+          },
+        ),
+      ],
     );
   }
 }

@@ -10,6 +10,8 @@ import '../../../models/profile.dart';
 import '../../../state/providers.dart';
 import '../../widgets/countdown_button.dart';
 import '../../widgets/study_widgets.dart';
+import '../../widgets/notification_bell.dart';
+import '../../widgets/reauth.dart';
 
 /// Every account, with the students waiting for approval first. Each
 /// change goes through the admin-users Edge Function, which checks the
@@ -47,6 +49,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
   }
 
   Future<void> _act(String done, Future<void> Function() action) async {
+    if (!await confirmRecentSignIn(context)) return;
     try {
       await action();
       if (!mounted) return;
@@ -105,6 +108,8 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                 Row(
                   children: [
                     Expanded(child: Text('Users', style: t.headlineSmall)),
+                    const NotificationBell(),
+                    const SizedBox(width: Gap.tight),
                     FilledButton.icon(
                       onPressed: () => context.push('/admin/users/new'),
                       icon: const Icon(Icons.person_add_alt, size: 18),

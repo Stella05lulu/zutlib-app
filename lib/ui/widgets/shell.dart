@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../models/profile.dart';
 import '../../state/providers.dart';
+import '../../data/offline_cache.dart';
+import '../../services/reminders.dart';
 import 'brand.dart';
 
 class NavTarget {
@@ -19,7 +21,7 @@ const _studentNav = [
   NavTarget('/browse', 'Explore', Icons.explore_outlined, Icons.explore_rounded),
   NavTarget('/borrowing', 'My borrowing', Icons.auto_stories_outlined, Icons.auto_stories_rounded),
   NavTarget('/study', 'Study', Icons.school_outlined, Icons.school_rounded),
-  NavTarget('/updates', 'Updates', Icons.notifications_none_rounded, Icons.notifications_rounded),
+  NavTarget('/plan', 'Plan', Icons.event_note_outlined, Icons.event_note_rounded),
   NavTarget('/profile', 'Account', Icons.account_circle_outlined, Icons.account_circle_rounded),
 ];
 
@@ -52,9 +54,9 @@ class AppShell extends ConsumerWidget {
       UserRole.librarian => _staffNav,
       _ => _studentNav,
     };
-    // The Updates tab shows a count badge while anything is unread.
-    final unread = ref.watch(unreadCountProvider);
     final targets = roleTargets;
+    // Students: keep the phone's study and due-date reminders up to date.
+    if (profile?.role == UserRole.student) ref.watch(remindersSyncProvider);
 
     // The tab whose path matches most of the location ("/admin/users"
     // picks Users, not Dashboard).
@@ -71,14 +73,40 @@ class AppShell extends ConsumerWidget {
 
     void go(int i) => context.go(targets[i].path);
 
-    Widget icon(NavTarget t, {required bool selected}) {
-      final glyph = Icon(selected ? t.activeIcon : t.icon);
-      if (t.path != '/updates' || unread == 0) return glyph;
-      return Badge(label: Text(unread > 99 ? '99+' : '$unread'), child: glyph);
-    }
+    // Notifications live in the bell at the top of each screen, so the tabs
+    // are plain icons.
+    Widget icon(NavTarget t, {required bool selected}) => Icon(selected ? t.activeIcon : t.icon);
+    String tooltip(NavTarget t) => t.label;
 
-    String tooltip(NavTarget t) =>
-        t.path == '/updates' && unread > 0 ? '${t.label}, $unread unread' : t.label;
+    // A thin strip while a screen shows its saved copy instead of fresh data.
+    final page = ValueListenableBuilder<bool>(
+      valueListenable: OfflineCache.offline,
+      builder: (context, offline, _) => Column(
+        children: [
+          if (offline)
+            Material(
+              color: Palette.warnWash,
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: Insets.md, vertical: Insets.sm),
+                  child: Row(
+                    children: [
+                      Icon(Icons.cloud_off_outlined, size: 18, color: Palette.warn),
+                      const SizedBox(width: Insets.sm),
+                      Expanded(
+                        child: Text('Offline: showing your saved copy. Changes need a connection.',
+                            style: TextStyle(color: Palette.warn, fontWeight: FontWeight.w600, fontSize: 13)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          Expanded(child: child),
+        ],
+      ),
+    );
 
     final wide = MediaQuery.sizeOf(context).width >= kWideBreakpoint;
 
@@ -94,7 +122,7 @@ class AppShell extends ConsumerWidget {
               icon: icon,
             ),
             const VerticalDivider(width: 1),
-            Expanded(child: child),
+            Expanded(child: page),
           ],
         ),
       );
@@ -103,7 +131,7 @@ class AppShell extends ConsumerWidget {
     // A standard bottom bar with a label under every icon: nothing to
     // guess, and the page above it never hides behind it.
     return Scaffold(
-      body: child,
+      body: page,
       bottomNavigationBar: DecoratedBox(
         decoration: BoxDecoration(border: Border(top: BorderSide(color: Palette.line))),
         child: NavigationBar(

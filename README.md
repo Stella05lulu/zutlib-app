@@ -12,7 +12,13 @@ typed against the title, course code, department, year, type and
 description, tolerates small spelling mistakes, and puts an exact course code
 first. Digital resources open immediately. Physical copies are borrowed
 through a request a librarian approves or rejects; the student sees each
-decision on their Updates screen.
+decision in the bell at the top right, and is reminded before a book is due.
+
+Students also get a study assistant (study kits built by AI from a PDF,
+YouTube video or notes), a **Plan** tab that turns each exam date into a
+day-by-day plan, "For your courses" suggestions on Explore, and reminders on
+their phone. Administrators get usage reports and read feedback sent from
+the app.
 
 Accounts are separated into three roles. Students sign themselves up, confirm
 their email, and then wait on a holding screen until an administrator
@@ -38,17 +44,22 @@ on its own, in order:
     supabase/migrations/0012_accounts_roles_library.sql
     supabase/migrations/0013_study_pdfs.sql
     supabase/migrations/0014_study_kits.sql
+    supabase/migrations/0015_planner_notifications.sql
 
 0011 must be its own run because Postgres will not use a new enum value in
 the same transaction that adds it. If 0001 to 0010 are already applied,
 start at 0011.
 
-Then run the four test files the same way. Every row must say PASS:
+Before 0015, turn on **pg_cron** (Database -> Extensions -> pg_cron -> Enable).
+0015 uses it to send due-date and exam reminders every morning at 07:00.
+
+Then run the five test files the same way. Every row must say PASS:
 
     supabase/tests/rls_negative.sql     borrowing and catalogue rules
     supabase/tests/study_rls.sql        study notes, PDFs, AI tables
     supabase/tests/roles_rls.sql        sign-up, approval, roles, admin actions
     supabase/tests/study_kits_rls.sql   study kits, guides, progress, tests, games
+    supabase/tests/planner_rls.sql      plans, profiles, notifications, feedback, reports
 
 The tests make their own throwaway rows and remove them at the end.
 
@@ -57,12 +68,24 @@ The tests make their own throwaway rows and remove them at the end.
     supabase functions deploy admin-users
     supabase functions deploy decide-request
     supabase functions deploy study-generate
+    supabase functions deploy push --no-verify-jwt
     supabase functions delete register
     supabase secrets set GEMINI_API_KEY=paste-your-free-key-here
+
+`push` sends notifications to phones through Firebase Cloud Messaging. It
+works only after the optional step 2b; until then it does nothing.
 
 `register` belonged to the old student-roll sign-up and is no longer used;
 deleting it closes that door. The Gemini key is free from aistudio.google.com
 and lives only in Supabase secrets.
+
+### 2b. Phone push notifications (optional, free)
+
+Without this, notifications still appear in the app's bell and the phone
+still shows study and due-date reminders (scheduled on the phone). This
+step adds push for messages the phone cannot know in advance, such as "your
+request was approved" or "new paper for EEE 2011", while the app is closed.
+See `docs/PUSH_SETUP.md`.
 
 ### 3. Authentication settings (dashboard)
 

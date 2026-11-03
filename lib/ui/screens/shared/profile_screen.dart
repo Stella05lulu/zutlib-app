@@ -6,9 +6,12 @@ import '../../../core/failure.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
 import '../../../models/profile.dart';
+import '../../../services/reminders.dart';
 import '../../../state/providers.dart';
 import '../../../state/theme_mode.dart';
 import '../../widgets/common.dart';
+import '../../widgets/feedback_sheet.dart';
+import '../../widgets/notification_bell.dart';
 import '../../widgets/state_views.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -19,7 +22,7 @@ class ProfileScreen extends ConsumerWidget {
     final async = ref.watch(profileProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Account')),
+      appBar: AppBar(title: const Text('Account'), actions: const [NotificationBell(), SizedBox(width: Insets.xs)]),
       body: AsyncView<Profile?>(
         value: async,
         onRetry: () => ref.invalidate(profileProvider),
@@ -63,7 +66,12 @@ class ProfileScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  const SectionHeading('Account details'),
+                  SectionHeading('Account details',
+                      trailing: TextButton.icon(
+                        onPressed: () => context.push('/profile/edit'),
+                        icon: const Icon(Icons.edit_outlined, size: 18),
+                        label: const Text('Edit profile'),
+                      )),
                   Card(
                     child: Column(
                       children: [
@@ -74,13 +82,21 @@ class ProfileScreen extends ConsumerWidget {
                           const Divider(height: 1),
                           _Row('Department', profile.department!),
                         ],
+                        if (profile.role == UserRole.student) ...[
+                          const Divider(height: 1),
+                          _Row('Year of study', profile.yearOfStudy == null ? 'Not set' : 'Year ${profile.yearOfStudy}'),
+                          const Divider(height: 1),
+                          _Row('Courses', profile.courses.isEmpty ? 'None chosen yet' : profile.courses.join(', ')),
+                          const Divider(height: 1),
+                          _Row('Study reminder', profile.notifyStudy ? 'Daily at ${profile.reminderTime}' : 'Off'),
+                        ],
                       ],
                     ),
                   ),
                   const SizedBox(height: Insets.sm),
                   Text(
-                    'Only an administrator can change these. Contact the '
-                    'library if something is wrong.',
+                    'You can change your name, department, year, courses and reminders. '
+                    'Your email address and role can only be changed by an administrator.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SectionHeading('Appearance'),
@@ -89,6 +105,14 @@ class ProfileScreen extends ConsumerWidget {
                   Card(
                     child: Column(
                       children: [
+                        ListTile(
+                          leading: const Icon(Icons.feedback_outlined),
+                          title: const Text('Send feedback'),
+                          subtitle: const Text('Report a problem or suggest an idea'),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () => showFeedbackSheet(context),
+                        ),
+                        const Divider(height: 1),
                         ListTile(
                           leading: const Icon(Icons.lock_reset_outlined),
                           title: const Text('Change password'),
@@ -113,6 +137,7 @@ class ProfileScreen extends ConsumerWidget {
                           title: Text('Sign out',
                               style: TextStyle(color: Palette.bad)),
                           onTap: () async {
+                            await Reminders.cancelAll();
                             await authRepo.signOut();
                             ref.invalidate(profileProvider);
                             if (context.mounted) context.go('/login');

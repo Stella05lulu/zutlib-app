@@ -6,6 +6,7 @@ import '../core/failure.dart';
 import '../core/supabase.dart';
 import '../models/study.dart';
 import '../study/practice.dart';
+import 'offline_cache.dart';
 
 /// The only place the study assistant talks to Supabase.
 ///
@@ -47,15 +48,16 @@ class StudyRepository {
 
   // ------------------------------------------------------------- notes
   Future<List<Note>> notes() => _guard(() async {
-        final data = await db
-            .from('study_notes')
-            .select(Note.columns)
-            .order('updated_at', ascending: false);
+        final data = await OfflineCache.rows('study.notes', () async {
+          return await db.from('study_notes').select(Note.columns).order('updated_at', ascending: false);
+        });
         return _rows(data, Note.fromMap);
       });
 
   Future<Note?> note(String id) => _guard(() async {
-        final data = await db.from('study_notes').select(Note.columns).eq('id', id).maybeSingle();
+        final data = await OfflineCache.single('study.note.$id', () async {
+          return await db.from('study_notes').select(Note.columns).eq('id', id).maybeSingle();
+        });
         return data == null ? null : Note.fromMap(data);
       });
 
@@ -239,7 +241,9 @@ class StudyRepository {
   Future<List<Deck>> decks({String? noteId}) => _guard(() async {
         var query = db.from('study_decks').select(Deck.columns);
         if (noteId != null) query = query.eq('note_id', noteId);
-        final data = await query.order('updated_at', ascending: false);
+        final data = await OfflineCache.rows('study.decks.${noteId ?? 'all'}', () async {
+          return await query.order('updated_at', ascending: false);
+        });
         return _rows(data, Deck.fromMap);
       });
 
@@ -268,12 +272,14 @@ class StudyRepository {
       });
 
   Future<List<Flashcard>> cards(String deckId) => _guard(() async {
-        final data = await db
-            .from('study_flashcards')
-            .select(Flashcard.columns)
-            .eq('deck_id', deckId)
-            .order('position', ascending: true)
-            .order('created_at', ascending: true);
+        final data = await OfflineCache.rows('study.cards.$deckId', () async {
+          return await db
+              .from('study_flashcards')
+              .select(Flashcard.columns)
+              .eq('deck_id', deckId)
+              .order('position', ascending: true)
+              .order('created_at', ascending: true);
+        });
         return _rows(data, Flashcard.fromMap);
       });
 
@@ -297,7 +303,9 @@ class StudyRepository {
   Future<List<Quiz>> quizzes({String? noteId}) => _guard(() async {
         var query = db.from('study_quizzes').select(Quiz.columns);
         if (noteId != null) query = query.eq('note_id', noteId);
-        final data = await query.order('updated_at', ascending: false);
+        final data = await OfflineCache.rows('study.quizzes.${noteId ?? 'all'}', () async {
+          return await query.order('updated_at', ascending: false);
+        });
         return _rows(data, Quiz.fromMap);
       });
 
@@ -326,12 +334,14 @@ class StudyRepository {
       });
 
   Future<List<QuizQuestion>> questions(String quizId) => _guard(() async {
-        final data = await db
-            .from('study_quiz_questions')
-            .select(QuizQuestion.columns)
-            .eq('quiz_id', quizId)
-            .order('position', ascending: true)
-            .order('created_at', ascending: true);
+        final data = await OfflineCache.rows('study.questions.$quizId', () async {
+          return await db
+              .from('study_quiz_questions')
+              .select(QuizQuestion.columns)
+              .eq('quiz_id', quizId)
+              .order('position', ascending: true)
+              .order('created_at', ascending: true);
+        });
         return _rows(data, QuizQuestion.fromMap);
       });
 
@@ -390,20 +400,26 @@ class StudyRepository {
 
   // ------------------------------------------------------------- kits
   Future<StudyGuide?> guide(String noteId) => _guard(() async {
-        final data = await db.from('study_guides').select(StudyGuide.columns).eq('note_id', noteId).maybeSingle();
+        final data = await OfflineCache.single('study.guide.$noteId', () async {
+          return await db.from('study_guides').select(StudyGuide.columns).eq('note_id', noteId).maybeSingle();
+        });
         return data == null ? null : StudyGuide.fromMap(data);
       });
 
   /// Every guide the student has, for the kit list.
   Future<List<StudyGuide>> guides() => _guard(() async {
-        final data = await db.from('study_guides').select(StudyGuide.columns);
+        final data = await OfflineCache.rows('study.guides', () async {
+          return await db.from('study_guides').select(StudyGuide.columns);
+        });
         return _rows(data, StudyGuide.fromMap);
       });
 
   /// Card id to box (0 Learning to 3 Mastered) for the given cards.
   Future<Map<String, int>> cardBoxes(List<String> cardIds) => _guard(() async {
         if (cardIds.isEmpty) return <String, int>{};
-        final data = await db.from('study_card_progress').select('card_id,box').inFilter('card_id', cardIds);
+        final data = await OfflineCache.rows('study.boxes.${cardIds.first}', () async {
+          return await db.from('study_card_progress').select('card_id,box').inFilter('card_id', cardIds);
+        });
         return {
           for (final r in (data as List)) (r as Map)['card_id'] as String: ((r['box'] as num?) ?? 0).toInt(),
         };
@@ -416,10 +432,12 @@ class StudyRepository {
   /// Question id to stars (0 to 3) for the given questions.
   Future<Map<String, int>> questionStars(List<String> questionIds) => _guard(() async {
         if (questionIds.isEmpty) return <String, int>{};
-        final data = await db
-            .from('study_question_progress')
-            .select('question_id,stars')
-            .inFilter('question_id', questionIds);
+        final data = await OfflineCache.rows('study.stars.${questionIds.first}', () async {
+          return await db
+              .from('study_question_progress')
+              .select('question_id,stars')
+              .inFilter('question_id', questionIds);
+        });
         return {
           for (final r in (data as List)) (r as Map)['question_id'] as String: ((r['stars'] as num?) ?? 0).toInt(),
         };

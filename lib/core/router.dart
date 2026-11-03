@@ -14,7 +14,12 @@ import '../ui/screens/auth/set_password_screen.dart';
 import '../ui/screens/auth/verify_email_screen.dart';
 import '../ui/screens/admin/admin_dashboard_screen.dart';
 import '../ui/screens/admin/create_account_screen.dart';
+import '../ui/screens/admin/reports_screen.dart';
 import '../ui/screens/admin/users_screen.dart';
+import '../ui/screens/plan/plan_detail_screen.dart';
+import '../ui/screens/plan/plan_home_screen.dart';
+import '../ui/screens/shared/onboarding_screen.dart';
+import '../ui/screens/shared/profile_edit_screen.dart';
 import '../ui/screens/shared/profile_screen.dart';
 import '../ui/screens/shared/splash_screen.dart';
 import '../ui/screens/staff/book_form_screen.dart';
@@ -46,7 +51,8 @@ import 'supabase.dart';
 /// Screens only an approved student uses. Staff are sent home instead.
 bool _studentOnly(String path) =>
     path.startsWith('/borrowing') ||
-    path.startsWith('/updates') ||
+    path.startsWith('/plan') ||
+    path.startsWith('/welcome') ||
     path.startsWith('/study') ||
     RegExp(r'^/resource/[^/]+/borrow$').hasMatch(path);
 
@@ -100,6 +106,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (!profile.isActive) return path == '/pending' ? null : '/pending';
       if (path == '/pending') return ref.read(homeRouteProvider);
 
+      // A student's first visit: the welcome screens and a short survey.
+      if (profile.needsOnboarding) return path == '/welcome' ? null : '/welcome';
+      if (path == '/welcome') return ref.read(homeRouteProvider);
+
       if (onAuthScreen) return ref.read(homeRouteProvider);
 
       // Keep people out of areas their role does not cover.
@@ -130,7 +140,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(path: '/browse', builder: (_, __) => const BrowseScreen()),
           GoRoute(path: '/borrowing', builder: (_, __) => const MyBorrowingScreen()),
-          GoRoute(path: '/updates', builder: (_, __) => const NotificationsScreen()),
+          GoRoute(path: '/plan', builder: (_, __) => const PlanHomeScreen()),
           GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
           GoRoute(path: '/study', builder: (_, __) => const StudyHomeScreen()),
           GoRoute(path: '/staff/requests', builder: (_, __) => const RequestQueueScreen()),
@@ -140,6 +150,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
 
+      GoRoute(path: '/updates', builder: (_, __) => const NotificationsScreen()),
+      GoRoute(path: '/welcome', builder: (_, __) => const OnboardingScreen()),
+      GoRoute(path: '/profile/edit', builder: (_, __) => const ProfileEditScreen()),
+      GoRoute(path: '/admin/reports', builder: (_, __) => const ReportsScreen()),
+      GoRoute(
+        path: '/plan/:id',
+        builder: (_, s) => PlanDetailScreen(planId: s.pathParameters['id']!),
+      ),
       GoRoute(
         path: '/resource/:id',
         builder: (_, s) => ResourceDetailScreen(resourceId: s.pathParameters['id']!),

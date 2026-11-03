@@ -9,6 +9,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../models/study.dart';
 import '../../../state/study_providers.dart';
 import '../../widgets/study_widgets.dart';
+import '../../../state/plan_providers.dart' show accountRepo;
 
 /// Pieces shared by the study kit screens.
 
@@ -319,6 +320,7 @@ class _KitBuilderDialogState extends State<_KitBuilderDialog> {
   Future<void> _run() async {
     try {
       await studyRepo.generate(StudyKind.kit, widget.noteId);
+      unawaited(accountRepo.logEvent('kit_built'));
       if (!mounted) return;
       setState(() {
         _done = true;

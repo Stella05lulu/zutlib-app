@@ -53,6 +53,12 @@ class Profile {
     this.department,
     this.mustSetPassword = false,
     this.createdAt,
+    this.yearOfStudy,
+    this.courses = const [],
+    this.onboardedAt,
+    this.reminderTime = '18:00',
+    this.notifyUploads = true,
+    this.notifyStudy = true,
   });
 
   final String id;
@@ -65,6 +71,30 @@ class Profile {
   /// True for an invited account that has not chosen a password yet.
   final bool mustSetPassword;
   final DateTime? createdAt;
+
+  /// 1 to 6, chosen at onboarding or in Edit profile.
+  final int? yearOfStudy;
+
+  /// Course codes the student takes, such as EEE 2011.
+  final List<String> courses;
+
+  /// When the student finished (or skipped) the first-run screens.
+  final DateTime? onboardedAt;
+
+  /// Daily study reminder time, "HH:MM" in Zambia time.
+  final String reminderTime;
+  final bool notifyUploads;
+  final bool notifyStudy;
+
+  bool get needsOnboarding => role == UserRole.student && isActive && onboardedAt == null;
+
+  /// The reminder time as hour and minute.
+  (int, int) get reminderHourMinute {
+    final parts = reminderTime.split(':');
+    final h = int.tryParse(parts.isNotEmpty ? parts[0] : '') ?? 18;
+    final m = int.tryParse(parts.length > 1 ? parts[1] : '') ?? 0;
+    return (h.clamp(0, 23), m.clamp(0, 59));
+  }
 
   bool get isActive => status == AccountStatus.active;
 
@@ -86,8 +116,19 @@ class Profile {
         createdAt: m['created_at'] == null
             ? null
             : DateTime.parse(m['created_at'] as String).toLocal(),
+        yearOfStudy: (m['year_of_study'] as num?)?.toInt(),
+        courses: [for (final c in (m['courses'] as List? ?? const [])) c.toString()],
+        onboardedAt: m['onboarded_at'] == null ? null : DateTime.parse(m['onboarded_at'] as String).toLocal(),
+        reminderTime: _hhmm(m['reminder_time'] as String?),
+        notifyUploads: (m['notify_uploads'] ?? true) as bool,
+        notifyStudy: (m['notify_study'] ?? true) as bool,
       );
 }
+
+/// "18:30:00" from the database becomes "18:30"; anything missing or
+/// malformed becomes the 18:00 default.
+String _hhmm(String? v) =>
+    v != null && RegExp(r'^\d{2}:\d{2}').hasMatch(v) ? v.substring(0, 5) : '18:00';
 
 extension on String {
   String firstLetter() => isEmpty ? '' : substring(0, 1).toUpperCase();

@@ -2,6 +2,7 @@ import '../core/failure.dart';
 import '../core/supabase.dart';
 import '../models/borrow_request.dart';
 import '../models/profile.dart';
+import 'offline_cache.dart';
 
 const _select = '*, resources(title, course_code, department)';
 
@@ -17,9 +18,11 @@ class BorrowRepository {
     final id = currentUserId;
     if (id == null) return const [];
     try {
-      final rows = await db.from('borrow_requests')
-          .select(_select).eq('student_id', id).order('requested_at', ascending: false);
-      return (rows as List).map((e) => BorrowRequest.fromMap(e)).toList();
+      final rows = await OfflineCache.rows('borrowing.mine', () async {
+        return await db.from('borrow_requests')
+            .select(_select).eq('student_id', id).order('requested_at', ascending: false);
+      });
+      return rows.map((e) => BorrowRequest.fromMap(e)).toList();
     } catch (e) {
       throw Failure.from(e);
     }

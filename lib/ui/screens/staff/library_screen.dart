@@ -8,6 +8,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../models/resource.dart';
 import '../../../state/providers.dart';
 import '../../widgets/study_widgets.dart';
+import '../../widgets/notification_bell.dart';
 
 /// The librarian's catalogue: past papers and books, with the tools to add,
 /// edit, retire and import them. Only active library staff can reach this
@@ -144,7 +145,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               },
               children: [
                 const SizedBox(height: Gap.tight),
-                Text('Library', style: t.headlineSmall),
+                Row(children: [
+                  Expanded(child: Text('Library', style: t.headlineSmall)),
+                  const NotificationBell(),
+                ]),
                 const SizedBox(height: Gap.hair + 2),
                 Text('Past papers, lecture notes and books. Items marked Sample are demonstration data.',
                     style: t.bodyMedium),

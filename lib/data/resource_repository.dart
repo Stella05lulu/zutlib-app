@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import '../core/failure.dart';
 import '../core/supabase.dart';
 import '../models/resource.dart';
+import 'offline_cache.dart';
 
 class ResourceFilters {
   const ResourceFilters({
@@ -73,7 +74,7 @@ class ResourceRepository {
   /// level security still applies inside the function.
   Future<List<Resource>> search(ResourceFilters f, {int limit = 50, int offset = 0}) async {
     try {
-      final rows = await db.rpc('search_resources', params: {
+      final params = {
         'q': f.query.trim().isEmpty ? null : f.query.trim(),
         'p_department': f.department,
         'p_course': f.courseCode,
@@ -81,10 +82,54 @@ class ResourceRepository {
         'p_type': f.type?.wire,
         'p_limit': limit,
         'p_offset': offset,
-      });
+      };
+      // The home page and each type's shelf are kept for offline use; other
+      // searches only work online.
+      final cacheable = f.query.trim().isEmpty && f.department == null && f.courseCode == null &&
+          f.year == null && offset == 0;
+      final Object? rows = cacheable
+          ? await OfflineCache.rows('catalogue.${f.type?.wire ?? 'all'}.$limit',
+              () async => await db.rpc('search_resources', params: params))
+          : await db.rpc('search_resources', params: params);
       return (rows as List)
-          .map((e) => Resource.fromMap(e as Map<String, dynamic>))
+          .map((e) => Resource.fromMap(Map<String, dynamic>.from(e as Map)))
           .toList();
+    } catch (e) {
+      throw Failure.from(e);
+    }
+  }
+
+  /// Candidates for "For your courses": items for any of [courses], plus
+  /// recent items from [department]. Retired items are left out.
+  Future<List<Resource>> forCourses(List<String> courses, String? department) async {
+    try {
+      final codes = {
+        for (final c in courses) ...[c, c.toUpperCase(), c.toLowerCase(), c.replaceAll(' ', '')],
+      }.toList();
+      final byCourse = codes.isEmpty
+          ? const <Object?>[]
+          : await db
+              .from('resources')
+              .select()
+              .inFilter('course_code', codes)
+              .isFilter('retired_at', null)
+              .order('academic_year', ascending: false)
+              .limit(60);
+      final byDept = department == null
+          ? const <Object?>[]
+          : await db
+              .from('resources')
+              .select()
+              .eq('department', department)
+              .isFilter('retired_at', null)
+              .neq('type', 'book')
+              .order('created_at', ascending: false)
+              .limit(60);
+      final seen = <String>{};
+      return [
+        for (final r in [...byCourse, ...byDept])
+          if (seen.add((r as Map)['id'] as String)) Resource.fromMap(Map<String, dynamic>.from(r)),
+      ];
     } catch (e) {
       throw Failure.from(e);
     }

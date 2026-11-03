@@ -1,5 +1,7 @@
-/// A message written to a student by the decide-request function when a
-/// librarian acts on their borrowing request.
+/// A message in the bell: a borrowing decision, a due-date reminder, a new
+/// paper for one of the student's courses, an exam reminder, or (for
+/// staff) a new request or sign-up. Written only by the database and the
+/// server functions; the reader can only mark it read.
 class AppNotification {
   const AppNotification({
     required this.id,
@@ -7,6 +9,8 @@ class AppNotification {
     required this.body,
     required this.createdAt,
     this.readAt,
+    this.kind = 'general',
+    this.link,
   });
 
   final String id;
@@ -14,6 +18,12 @@ class AppNotification {
   final String body;
   final DateTime createdAt;
   final DateTime? readAt;
+
+  /// general, borrow, due, upload, study, staff or admin.
+  final String kind;
+
+  /// Where tapping it goes, such as /borrowing or /resource/<id>.
+  final String? link;
 
   bool get isUnread => readAt == null;
 
@@ -25,5 +35,7 @@ class AppNotification {
         readAt: m['read_at'] == null
             ? null
             : DateTime.parse(m['read_at'] as String).toLocal(),
+        kind: (m['kind'] ?? 'general') as String,
+        link: m['link'] as String?,
       );
 }

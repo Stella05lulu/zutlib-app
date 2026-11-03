@@ -7,6 +7,8 @@ import 'package:printing/printing.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../models/study.dart';
+import '../../../core/failure.dart';
+import '../../../state/plan_providers.dart';
 import '../../../state/study_providers.dart';
 import '../../widgets/study_widgets.dart';
 import 'kit_widgets.dart';
@@ -110,6 +112,21 @@ class _KitGuideTabState extends ConsumerState<KitGuideTab> {
     }
   }
 
+  /// Marks a section read (it counts towards today's plan) or unread.
+  Future<void> _setRead(String guideId, int section, bool read) async {
+    try {
+      if (read) {
+        await planRepo.markRead(guideId, section);
+      } else {
+        await planRepo.unmarkRead(guideId, section);
+      }
+      ref.invalidate(guideReadsProvider(guideId));
+      ref.invalidate(activityProvider);
+    } on Failure catch (f) {
+      _say(f.message, error: true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = StudyColors.of(context);
@@ -176,7 +193,13 @@ class _KitGuideTabState extends ConsumerState<KitGuideTab> {
         const SizedBox(height: Gap.snug),
         Text(g.overview, style: t.bodyLarge?.copyWith(color: c.inkSoft)),
         const SizedBox(height: Gap.section),
-        for (var i = 0; i < g.sections.length; i++) _Section(number: i + 1, section: g.sections[i]),
+        for (var i = 0; i < g.sections.length; i++)
+          _Section(
+            number: i + 1,
+            section: g.sections[i],
+            read: (ref.watch(guideReadsProvider(g.id)).valueOrNull ?? const {}).containsKey(i),
+            onRead: (read) => _setRead(g.id, i, read),
+          ),
         const SizedBox(height: Gap.snug),
         Text('AI can make mistakes. Check the guide against your materials.', style: t.bodySmall),
       ],
@@ -185,9 +208,11 @@ class _KitGuideTabState extends ConsumerState<KitGuideTab> {
 }
 
 class _Section extends StatelessWidget {
-  const _Section({required this.number, required this.section});
+  const _Section({required this.number, required this.section, required this.read, required this.onRead});
   final int number;
   final GuideSection section;
+  final bool read;
+  final ValueChanged<bool> onRead;
 
   @override
   Widget build(BuildContext context) {
@@ -237,6 +262,21 @@ class _Section extends StatelessWidget {
                 ),
               ),
           ],
+          const SizedBox(height: Gap.tight),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: read
+                ? TextButton.icon(
+                    onPressed: () => onRead(false),
+                    icon: Icon(Icons.check_circle, size: 18, color: c.success),
+                    label: Text('Read', style: TextStyle(color: c.success)),
+                  )
+                : OutlinedButton.icon(
+                    onPressed: () => onRead(true),
+                    icon: const Icon(Icons.check_circle_outline, size: 18),
+                    label: const Text('Mark as read'),
+                  ),
+          ),
         ],
       ),
     );

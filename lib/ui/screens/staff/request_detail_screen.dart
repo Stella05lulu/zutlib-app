@@ -7,6 +7,7 @@ import '../../../models/borrow_request.dart';
 import '../../../state/providers.dart';
 import '../../widgets/common.dart';
 import '../../widgets/state_views.dart';
+import '../../widgets/reauth.dart';
 
 final _requestProvider =
     FutureProvider.family<BorrowRequest?, String>((ref, id) async {
@@ -31,6 +32,8 @@ class _RequestDetailScreenState extends ConsumerState<RequestDetailScreen> {
   bool _busy = false;
 
   Future<void> _act(String action, {String? reason}) async {
+    if (!await confirmRecentSignIn(context)) return;
+    if (!mounted) return;
     setState(() => _busy = true);
     try {
       await borrowRepo.decide(

@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/failure.dart';
 import '../core/supabase.dart';
 import '../models/profile.dart';
+import 'offline_cache.dart';
 
 /// Where the links in account emails send people back to.
 ///
@@ -104,7 +105,12 @@ class AuthRepository {
     }
   }
 
-  Future<void> signOut() => auth.signOut();
+  /// Signs out and removes this device's saved copies, so the next person
+  /// on a shared phone never sees them.
+  Future<void> signOut() async {
+    await OfflineCache.clear();
+    await auth.signOut();
+  }
 
   Future<void> resendVerification(String email) async {
     try {

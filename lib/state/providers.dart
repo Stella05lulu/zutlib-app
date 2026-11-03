@@ -174,7 +174,18 @@ final notificationsProvider = FutureProvider<List<AppNotification>>((ref) {
   return notificationRepo.mine();
 });
 
-/// Drives the dot on the Updates tab.
+/// Keeps the bell live: whenever a notification is written for the
+/// signed-in person (Supabase Realtime), the list is read again.
+final notificationsLiveProvider = Provider.autoDispose<void>((ref) {
+  final uid = ref.watch(userIdProvider);
+  if (uid == null) return;
+  final channel = notificationRepo.listen(() => ref.invalidate(notificationsProvider));
+  ref.onDispose(() {
+    if (channel != null) notificationRepo.stopListening(channel);
+  });
+});
+
+/// Drives the count on the bell.
 final unreadCountProvider = Provider<int>((ref) {
   final list = ref.watch(notificationsProvider).valueOrNull ?? const [];
   return list.where((n) => n.isUnread).length;

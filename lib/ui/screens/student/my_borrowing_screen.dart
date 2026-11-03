@@ -8,6 +8,7 @@ import '../../../models/borrow_request.dart';
 import '../../../state/providers.dart';
 import '../../widgets/common.dart';
 import '../../widgets/state_views.dart';
+import '../../widgets/notification_bell.dart';
 
 class MyBorrowingScreen extends ConsumerWidget {
   const MyBorrowingScreen({super.key});
@@ -44,7 +45,7 @@ class MyBorrowingScreen extends ConsumerWidget {
     final async = ref.watch(myBorrowingProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My borrowing')),
+      appBar: AppBar(title: const Text('My borrowing'), actions: const [NotificationBell(), SizedBox(width: Insets.xs)]),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(myBorrowingProvider);

@@ -183,6 +183,8 @@ Deno.serve(async (req) => {
     user_id: reqRow.student_id,
     subject: titles[action],
     body: bodies[action],
+    kind: 'borrow',
+    link: '/borrowing',
   })
 
   return new Response(JSON.stringify({ ok: true, request: updated }), {

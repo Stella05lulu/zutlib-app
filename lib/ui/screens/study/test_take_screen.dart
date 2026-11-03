@@ -9,6 +9,7 @@ import '../../../models/study.dart';
 import '../../../state/study_providers.dart';
 import '../../../study/practice.dart';
 import '../../widgets/study_widgets.dart';
+import '../../../state/plan_providers.dart' show accountRepo;
 
 /// Taking a test: one question at a time against the clock. When time
 /// runs out the test is handed in as it stands. The database marks it;
@@ -113,6 +114,7 @@ class _TestRunState extends ConsumerState<_TestRun> {
     });
     try {
       final attempt = await studyRepo.submitTest(widget.test.id, _answers, _elapsed);
+      unawaited(accountRepo.logEvent('test_taken'));
       if (!mounted) return;
       _clock?.cancel();
       setState(() => _result = attempt);

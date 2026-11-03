@@ -8,6 +8,7 @@ import '../../../models/borrow_request.dart';
 import '../../../state/providers.dart';
 import '../../widgets/common.dart';
 import '../../widgets/state_views.dart';
+import '../../widgets/notification_bell.dart';
 
 const _tabs = <String, Set<BorrowStatus>>{
   'Pending': {BorrowStatus.submitted, BorrowStatus.underReview},
@@ -37,6 +38,7 @@ class RequestQueueScreen extends ConsumerWidget {
             },
             icon: const Icon(Icons.refresh),
           ),
+          const NotificationBell(),
           const SizedBox(width: Insets.sm),
         ],
       ),

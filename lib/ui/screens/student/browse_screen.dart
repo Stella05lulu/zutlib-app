@@ -11,6 +11,8 @@ import '../../../models/profile.dart';
 import '../../../state/providers.dart';
 import '../../widgets/common.dart';
 import '../../widgets/state_views.dart';
+import '../../widgets/notification_bell.dart';
+import '../../../state/plan_providers.dart';
 
 class BrowseScreen extends ConsumerStatefulWidget {
   const BrowseScreen({super.key});
@@ -45,10 +47,20 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
     });
   }
 
+  /// Records an anonymous search for the administrator's report: the course
+  /// filter, or a course code typed in the search box. No name is kept.
+  void _logSearch(String query, String? course) {
+    final typed = RegExp(r'\b([A-Za-z]{2,5})\s?(\d{3,4})\b').firstMatch(query);
+    final code = course ?? (typed == null ? null : '${typed.group(1)} ${typed.group(2)}');
+    if (code == null && query.trim().isEmpty) return;
+    accountRepo.logEvent('search', courseCode: code);
+  }
+
   /// Pressing search on the keyboard skips the debounce.
   void _onQuerySubmitted(String value) {
     _debounce?.cancel();
     ref.read(filtersProvider.notifier).update((f) => f.copyWith(query: value));
+    _logSearch(value, null);
   }
 
   void _clearAll() {
@@ -84,6 +96,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
           onRefresh: () async {
             ref.invalidate(searchProvider);
             ref.invalidate(homeShelvesProvider);
+            ref.invalidate(recommendationsProvider);
             ref.invalidate(facetsProvider);
             await ref.read(searchProvider.future);
           },
@@ -261,7 +274,15 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
     // page of results instead.
     final byType = ref.watch(homeShelvesProvider).valueOrNull ??
         {for (final type in ResourceType.values) type: items.where((r) => r.type == type).toList()};
+    final recs = ref.watch(recommendationsProvider).valueOrNull ?? const [];
     final shelves = <Widget>[
+      if (recs.isNotEmpty)
+        _Shelf(
+          title: 'For your courses',
+          items: [for (final r in recs) r.item],
+          reasons: {for (final r in recs) r.item.id: r.reason},
+          onOpen: _open,
+        ),
       _Shelf(
         title: 'Recently added',
         items: items.take(10).toList(),
@@ -307,7 +328,10 @@ class _Header extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Explore', style: t.headlineSmall?.copyWith(fontSize: 28, fontWeight: FontWeight.w700)),
+        Row(children: [
+          Expanded(child: Text('Explore', style: t.headlineSmall?.copyWith(fontSize: 28, fontWeight: FontWeight.w700))),
+          const NotificationBell(),
+        ]),
         const SizedBox(height: Insets.xs),
         Text(
           who.isEmpty
@@ -363,11 +387,15 @@ class _Shelf extends StatelessWidget {
     required this.items,
     required this.onOpen,
     this.onSeeAll,
+    this.reasons = const {},
   });
   final String title;
   final List<Resource> items;
   final ValueChanged<Resource> onOpen;
   final VoidCallback? onSeeAll;
+
+  /// Resource id to the reason it is suggested.
+  final Map<String, String> reasons;
 
   @override
   Widget build(BuildContext context) {
@@ -402,6 +430,7 @@ class _Shelf extends StatelessWidget {
                 child: ResourceGridCard(
                   resource: items[i],
                   coverHeight: 140,
+                  reason: reasons[items[i].id],
                   onTap: () => onOpen(items[i]),
                 ),
               ),
@@ -442,7 +471,10 @@ class _FilterBar extends ConsumerWidget {
             value: filters.courseCode,
             items: facets?.courseCodes ?? const [],
             label: (c) => c,
-            onChanged: (v) => set(filters.copyWith(courseCode: v)),
+            onChanged: (v) {
+              set(filters.copyWith(courseCode: v));
+              if (v != null) accountRepo.logEvent('search', courseCode: v);
+            },
           ),
           const SizedBox(width: Insets.sm),
           _Dropdown<int>(

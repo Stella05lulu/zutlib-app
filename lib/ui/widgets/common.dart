@@ -102,12 +102,17 @@ class ResourceGridCard extends StatelessWidget {
     required this.onTap,
     this.overlayAction,
     this.coverHeight = 118,
+    this.reason,
   });
 
   final Resource resource;
   final VoidCallback onTap;
   final Widget? overlayAction;
   final double coverHeight;
+
+  /// Why this item is suggested ("Because you take EEE 2011"), shown
+  /// under the title on the "For your courses" shelf.
+  final String? reason;
 
   @override
   Widget build(BuildContext context) {
@@ -197,6 +202,13 @@ class ResourceGridCard extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 4),
+                    if (reason != null) ...[
+                      Text(reason!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Palette.blue)),
+                      const SizedBox(height: 2),
+                    ],
                     MetaLine([
                       resource.department,
                       if (resource.academicYear != null) '${resource.academicYear}',

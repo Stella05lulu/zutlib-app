@@ -21,6 +21,11 @@ dependencies:
   shared_preferences: ^2.3.2
   pdf: ^3.11.1
   printing: ^5.13.4
+  # Study and due-date reminders scheduled on the phone (no server needed).
+  # Pinned: 19.5.0 is the version the code in lib/services/reminders.dart
+  # was written against (20.0 renamed its parameters).
+  flutter_local_notifications: 19.5.0
+  timezone: ^0.10.1
 
 dev_dependencies:
   flutter_test:
@@ -31,3 +36,9 @@ flutter:
   uses-material-design: true
   assets:
     - .env
+
+# image 4.11 needs a newer archive than pub resolves here (decodeLazy is
+# missing from archive 4.0.9). image is only used inside pdf/printing for the
+# study guide download; 4.5.4 works with archive 4.0.x.
+dependency_overrides:
+  image: 4.5.4

@@ -13,6 +13,7 @@ import '../../../state/providers.dart';
 import '../../../state/study_providers.dart';
 import '../../widgets/study_widgets.dart';
 import '../shared/pdf_viewer_screen.dart';
+import '../../../state/plan_providers.dart' show accountRepo;
 
 /// One catalogue item. Papers open as a PDF through a link that expires
 /// after five minutes. Students can ask to borrow a physical copy, or turn
@@ -45,6 +46,7 @@ class _ResourceDetailScreenState extends ConsumerState<ResourceDetailScreen> {
       if (!ok) _show('Could not open that link on this device.', true);
       return;
     }
+    unawaited(accountRepo.logEvent('open_resource', courseCode: r.courseCode, resourceId: r.id));
     final error = await openPdf(context,
         title: r.title, loadUrl: () => resourceRepo.signedUrl(r.filePath!, seconds: 300));
     if (error != null) _show(error, true);

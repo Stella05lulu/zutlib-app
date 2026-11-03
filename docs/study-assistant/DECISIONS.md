@@ -69,6 +69,23 @@ Every choice made while building the module, one line each, with the reason. Rec
 - **Resource details put the actions under the title**, before the details list, so "Open the PDF", "Ask to borrow" and "Study this with AI" are visible without scrolling on a phone.
 - **Logo: concept B, a bookmark with a Z cut through it**, chosen by the student from three concepts. Drawn in code (`ZutLibMark`), with SVG masters and rendered icons in `docs/brand/`.
 
+## Plans, notifications and the rest of the proposal (migration 0015)
+
+These close the gaps between the proposal's requirements and the app (multi-tenancy is future work).
+
+- **Plan is a main tab, built from a study kit.** One plan per kit: exam date, study days (a 7-bit mask), minutes per session (15 to 90). The plan is never stored as tasks. It is worked out each time by `lib/study/planner.dart` from the settings, the kit's content and progress, and what the student did each day, so it adapts by itself: sections missed earlier come back as catch-up. Phases: the first ~40% of study days Learn (read the guide, learn cards), the next ~40% Practise (Smart study weakest first, review cards), the last ~20% Test (practice tests, a mock exam two study days before, a light review on the last day). Every task carries a one-line reason, as the literature review's point on explainable recommendations requires.
+- **Tasks tick themselves from activity.** `study_activity` counts cards rated, questions answered, tests taken and guide sections read per kit and day. It is written inside the existing rating functions and a trigger on test attempts, never by the app, so the counts cannot be inflated by hand. Students can also tick a task by hand (`study_plan_checks`).
+- **The bell replaces the Updates tab.** It sits at the top right of every main screen, for every role, and updates live through Supabase Realtime. Tapping a notification opens its link.
+- **Notifications come from the database where possible.** Triggers notify students of new papers for their courses (never for sample data), librarians of new borrow requests, and administrators of new sign-ups. A daily pg_cron job at 07:00 Zambia time sends due-in-2-days, due-today and overdue (days 1, 3, 7, 14) reminders, a daily overdue summary for librarians, and exam reminders 3 days and 1 day before. Every message has a de-duplication key, so the job can run twice safely. Overdue loans are not given a new status, because a return is only allowed from "collected".
+- **Push: Supabase decides, Firebase delivers.** Android only accepts push through Firebase Cloud Messaging, so Firebase is used for delivery alone (the proposal names FCM). A Database Webhook calls the `push` function, which signs in to Google with the service account kept in Supabase secrets. Study and due-date reminders are scheduled on the phone with flutter_local_notifications, so they work without Firebase and offline.
+- **Students edit their own profile through one function** (`update_my_profile`): name, department, year, courses, reminder time and notification switches. Email, role and status stay with administrators.
+- **Onboarding** runs once for students: three short pages, then year, courses and reminder time, which seed recommendations (the cold-start answer from the literature). Staff skip it.
+- **Recommendations are rules, not AI**: an upcoming exam for the course scores highest and rises as it nears, then courses the student takes, courses studied recently, and same department and year level; newer papers break ties. Free, instant, testable, and each suggestion says why.
+- **Usage events have no user id** (`usage_events`): searches by course, items opened, kits built, plans created, tests taken. Reports are aggregates only, from `admin_reports()`, with a PDF download.
+- **Offline**: the last copy of the study kits, catalogue home, borrowing and notifications is kept per account on the device (shared_preferences) and shown with an "Offline" strip when the network fails. It is cleared on sign-out. Writes always need a connection.
+- **Re-authentication**: deciding a borrow request or changing an account asks for the password again when the last sign-in was over 15 minutes ago.
+- **Packages added**: flutter_local_notifications 19.5.0 (pinned: version 20 renamed its parameters) and timezone. Both free. Android needed core library desugaring and two notification permissions.
+
 ## Study kits (migration 0014)
 
 - **A note is now a "study kit"**: the same `study_notes` row with a `color` and an optional `youtube_url`. No new parent table, so every earlier note, deck and quiz keeps working; decks and quizzes with no kit show under "Other decks and question banks".

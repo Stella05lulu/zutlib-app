@@ -12,6 +12,9 @@ import '../../../state/study_providers.dart';
 import '../../widgets/study_widgets.dart';
 import 'kit_widgets.dart';
 import 'new_note_sheet.dart';
+import '../../widgets/notification_bell.dart';
+import '../../../models/resource.dart';
+import '../../../state/plan_providers.dart';
 
 /// The Study tab: the student's study kits, drawn as course tiles, with a
 /// search box and one clear way to start a new kit. Everything here is
@@ -76,7 +79,11 @@ class _StudyHomeScreenState extends ConsumerState<StudyHomeScreen> {
               onRefresh: _refresh,
               children: [
                 const SizedBox(height: Gap.tight),
-                Text('Study', style: t.headlineSmall?.copyWith(fontSize: 30, fontWeight: FontWeight.w700)),
+                Row(children: [
+                  Expanded(
+                      child: Text('Study', style: t.headlineSmall?.copyWith(fontSize: 30, fontWeight: FontWeight.w700))),
+                  const NotificationBell(),
+                ]),
                 const SizedBox(height: Gap.hair),
                 Text('Turn any PDF, video or notes into a study guide, flashcards, practice and tests.',
                     style: t.bodyLarge?.copyWith(color: c.inkSoft)),
@@ -175,6 +182,7 @@ class _StudyHomeScreenState extends ConsumerState<StudyHomeScreen> {
                     );
                   },
                 ),
+                const _Suggested(),
                 const _LooseItems(),
               ],
             ),
@@ -298,4 +306,67 @@ class _LooseItems extends ConsumerWidget {
       ],
     );
   }
+}
+
+/// Papers for the student's courses that have no study kit yet, with a
+/// one-tap way to make one (from "For your courses").
+class _Suggested extends ConsumerStatefulWidget {
+  const _Suggested();
+
+  @override
+  ConsumerState<_Suggested> createState() => _SuggestedState();
+}
+
+class _SuggestedState extends ConsumerState<_Suggested> {
+  String? _making;
+
+  Future<void> _make(Resource r) async {
+    setState(() => _making = r.id);
+    try {
+      final note = await studyRepo.createLibraryNote(
+        resourceId: r.id,
+        title: r.title,
+        courseCode: r.courseCode.isEmpty ? null : r.courseCode,
+      );
+      if (!mounted) return;
+      refreshKit(ref, note.id);
+      unawaited(context.push('/study/note/${note.id}?build=1'));
+    } on Failure catch (f) {
+      if (mounted) _snack(context, f.message);
+    } finally {
+      if (mounted) setState(() => _making = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final recs = ref.watch(recommendationsProvider).valueOrNull ?? const [];
+    final kits = ref.watch(kitListProvider).valueOrNull ?? const [];
+    final kitted = {for (final k in kits) if (k.note.resourceId != null) k.note.resourceId!};
+    final open = [for (final r in recs) if (r.item.hasPdf && !kitted.contains(r.item.id)) r].take(3).toList();
+    if (open.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SectionLabel('Suggested for you'),
+        RowGroup(children: [
+          for (final r in open)
+            StudyRow(
+              title: r.item.title,
+              detail: r.reason,
+              meta: [r.item.courseCode, if (r.item.academicYear != null) '${r.item.academicYear}'].join('  /  '),
+              trailing: TextButton(
+                onPressed: _making == null ? () => _make(r.item) : null,
+                child: Text(_making == r.item.id ? 'Making' : 'Make a kit'),
+              ),
+              onTap: () => context.push('/resource/${r.item.id}'),
+            ),
+        ]),
+      ],
+    );
+  }
+}
+
+void _snack(BuildContext context, String message) {
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
 }
