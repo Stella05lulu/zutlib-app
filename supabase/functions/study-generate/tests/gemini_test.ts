@@ -113,3 +113,21 @@ Deno.test('base64 of a large file matches the standard encoding', () => {
   assertEquals(decoded[12345], bytes[12345])
   assertEquals(decoded[199999], bytes[199999])
 })
+
+Deno.test('a YouTube video is sent as a file part with its link, before the text', () => {
+  const req = buildRequest('kit', 'Lecture', '', null, 'https://www.youtube.com/watch?v=dQw4w9WgXcQ') as {
+    contents: { parts: Record<string, unknown>[] }[]
+    generationConfig: { maxOutputTokens: number }
+  }
+  const parts = req.contents[0].parts
+  assertEquals(parts.length, 2)
+  assertEquals((parts[0].fileData as { fileUri: string }).fileUri, 'https://www.youtube.com/watch?v=dQw4w9WgXcQ')
+  assert(String(parts[1].text).includes('attached video'), 'the text says the video is the material')
+  assert(req.generationConfig.maxOutputTokens > 8192, 'a kit gets a larger answer allowance')
+})
+
+Deno.test('a refused video becomes ai_video, so the student is told to check it is public', async () => {
+  await assertRejects(
+    () => callGemini('k', 'kit', 't', '', null, fakeFetch(400, { error: {} }), 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'),
+    (e) => e instanceof ModelError && e.code === 'ai_video')
+})

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme.dart';
+import '../../core/theme/app_theme.dart' show KitPalette;
 import '../../models/borrow_request.dart';
 import '../../models/resource.dart';
 
@@ -25,9 +26,9 @@ class StatusChip extends StatelessWidget {
         child: Text(status.label.toUpperCase(),
             style: TextStyle(
               color: status.fg,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w600,
               fontSize: dense ? 11 : 12,
-              letterSpacing: 0.3,
+              letterSpacing: 0.4,
             )),
       );
 }
@@ -38,7 +39,7 @@ class MetaLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Text(
-        parts.where((p) => p.trim().isNotEmpty).join('  ·  '),
+        parts.where((p) => p.trim().isNotEmpty).join('  /  '),
         style: Theme.of(context).textTheme.bodySmall,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
@@ -80,16 +81,17 @@ int catalogGridColumns(double width) {
   return 1;
 }
 
-/// Blue-family gradient per resource type, standing in for course cover art.
-List<Color> resourceTypeGradient(ResourceType type) => switch (type) {
-      ResourceType.pastPaper => const [Color(0xFF3B82F6), Color(0xFF1E3A8A)],
-      ResourceType.testPaper => const [Color(0xFF0EA5E9), Color(0xFF0C4A6E)],
-      ResourceType.lectureNotes => const [Color(0xFF6366F1), Color(0xFF312E81)],
-      ResourceType.bookLink => const [Color(0xFF14B8A6), Color(0xFF1E40AF)],
-      ResourceType.book => const [Color(0xFF0D9488), Color(0xFF134E4A)],
+/// One solid cover colour per resource type, like the spines on a shelf.
+/// Shares the study kits' palette so the catalogue and Study look related.
+String resourceTypeColorKey(ResourceType type) => switch (type) {
+      ResourceType.pastPaper => 'blue',
+      ResourceType.testPaper => 'teal',
+      ResourceType.lectureNotes => 'slate',
+      ResourceType.bookLink => 'green',
+      ResourceType.book => 'orange',
     };
 
-/// Udemy-style tile: a rounded gradient "cover" with the course code as a
+/// Udemy-style tile: a solid colour "cover" with the course code as a
 /// big watermark, then a bold title, meta and availability on the page
 /// background with no card border. `overlayAction` sits in the cover's top
 /// right corner for a management action (e.g. remove).
@@ -110,47 +112,25 @@ class ResourceGridCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final available = !resource.isPhysical || resource.availableCopies > 0;
-    final colors = resourceTypeGradient(resource.type);
+    final key = resourceTypeColorKey(resource.type);
+    final cover = KitPalette.fill(key);
+    final onCover = KitPalette.onFill(key);
 
     return Material(
       type: MaterialType.transparency,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(Corners.card),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(Corners.card),
               child: SizedBox(
                 height: coverHeight,
                 child: Stack(
                   children: [
-                    Positioned.fill(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: colors,
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Soft light spot for depth.
-                    Positioned(
-                      top: -40, left: -30,
-                      child: Container(
-                        width: 140, height: 140,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: RadialGradient(colors: [
-                            Colors.white.withValues(alpha: 0.28),
-                            Colors.white.withValues(alpha: 0.0),
-                          ]),
-                        ),
-                      ),
-                    ),
+                    Positioned.fill(child: ColoredBox(color: cover)),
                     Positioned(
                       right: -4, bottom: -12,
                       child: Text(
@@ -158,9 +138,9 @@ class ResourceGridCard extends StatelessWidget {
                         maxLines: 1,
                         style: TextStyle(
                           fontSize: 46,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w700,
                           letterSpacing: -1.5,
-                          color: Colors.white.withValues(alpha: 0.16),
+                          color: onCover.withValues(alpha: 0.18),
                         ),
                       ),
                     ),
@@ -169,13 +149,11 @@ class ResourceGridCard extends StatelessWidget {
                       child: Container(
                         height: 36, width: 36,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(11),
-                          border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.35)),
+                          color: onCover.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(Corners.field),
                         ),
                         child: Icon(resourceTypeIcon(resource.type),
-                            size: 19, color: Colors.white),
+                            size: 19, color: onCover),
                       ),
                     ),
                     Positioned(
@@ -184,14 +162,14 @@ class ResourceGridCard extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.28),
-                          borderRadius: BorderRadius.circular(6),
+                          color: onCover.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(Corners.chip),
                         ),
                         child: Text(resource.type.label.toUpperCase(),
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: onCover,
                               fontSize: 10,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w600,
                               letterSpacing: 0.6,
                             )),
                       ),
@@ -211,10 +189,9 @@ class ResourceGridCard extends StatelessWidget {
                   children: [
                     Text(resource.title,
                         style: TextStyle(
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w600,
                           fontSize: 15,
-                          height: 1.25,
-                          letterSpacing: -0.1,
+                          height: 1.3,
                           color: Palette.ink,
                         ),
                         maxLines: 2,
@@ -236,12 +213,12 @@ class ResourceGridCard extends StatelessWidget {
                                 horizontal: 7, vertical: 2),
                             decoration: BoxDecoration(
                               color: Palette.neutralWash,
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius: BorderRadius.circular(Corners.chip),
                             ),
                             child: Text('Sample',
                                 style: TextStyle(
                                   fontSize: 11,
-                                  fontWeight: FontWeight.w800,
+                                  fontWeight: FontWeight.w600,
                                   color: Palette.inkSoft,
                                 )),
                           ),
@@ -253,12 +230,12 @@ class ResourceGridCard extends StatelessWidget {
                                 horizontal: 7, vertical: 2),
                             decoration: BoxDecoration(
                               color: Palette.highlight,
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius: BorderRadius.circular(Corners.chip),
                             ),
                             child: Text('In library',
                                 style: TextStyle(
                                   fontSize: 11,
-                                  fontWeight: FontWeight.w800,
+                                  fontWeight: FontWeight.w600,
                                   color: Palette.onHighlight,
                                 )),
                           ),
@@ -281,7 +258,7 @@ class ResourceGridCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 12,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w600,
                               color: available ? Palette.good : Palette.warn,
                             ),
                           ),
@@ -319,8 +296,9 @@ class CardOverlayButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         decoration: BoxDecoration(
-          color: Palette.surface.withValues(alpha: 0.88),
+          color: Palette.surface,
           shape: BoxShape.circle,
+          border: Border.all(color: Palette.line),
         ),
         child: IconButton(
           tooltip: tooltip,

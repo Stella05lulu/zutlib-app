@@ -114,3 +114,77 @@ Deno.test('a quiz question with an unexpected field is rejected', () => {
   const q = { ...goodQuestion, difficulty: 'hard' }
   assertThrows(() => validateOutput('quiz', JSON.stringify({ questions: [q] })), InvalidOutput)
 })
+
+// ---------------------------------------------------------------- study kits
+const kitQ = (i: number, extra: Record<string, unknown> = {}) => ({
+  question: `Question ${i}?`,
+  options: [
+    { text: 'Right', is_correct: true }, { text: 'Wrong A', is_correct: false },
+    { text: 'Wrong B', is_correct: false }, { text: 'Wrong C', is_correct: false },
+  ],
+  explanation: 'Because.',
+  difficulty: 'medium',
+  ...extra,
+})
+const goodKit = () => ({
+  guide: {
+    overview: '  What the material covers.  ',
+    sections: [{ heading: 'Topic', summary: 'A summary.', points: ['A fact', 'Another fact'] }],
+  },
+  cards: ['One', 'Two', 'Three', 'Four'].map((t) => ({ term: t, definition: `${t} means this.` })),
+  questions: [1, 2, 3, 4].map((i) => kitQ(i)),
+})
+
+Deno.test('kit: a valid kit is accepted and trimmed', () => {
+  const out = validateOutput('kit', JSON.stringify(goodKit())) as { guide: { overview: string }; questions: { difficulty: string }[] }
+  assertEquals(out.guide.overview, 'What the material covers.')
+  assertEquals(out.questions[0].difficulty, 'medium')
+})
+
+Deno.test('kit: a missing part is rejected', () => {
+  const k = goodKit() as Record<string, unknown>
+  delete k.cards
+  assertThrows(() => validateOutput('kit', JSON.stringify(k)), InvalidOutput)
+})
+
+Deno.test('kit: an extra field is rejected', () => {
+  assertThrows(() => validateOutput('kit', JSON.stringify({ ...goodKit(), podcast: 'x' })), InvalidOutput)
+})
+
+Deno.test('kit: too few cards or questions are rejected', () => {
+  assertThrows(() => validateOutput('kit', JSON.stringify({ ...goodKit(), cards: goodKit().cards.slice(0, 3) })), InvalidOutput)
+  assertThrows(() => validateOutput('kit', JSON.stringify({ ...goodKit(), questions: goodKit().questions.slice(0, 3) })), InvalidOutput)
+})
+
+Deno.test('kit: two cards with the same term are rejected (the matching game needs them apart)', () => {
+  const k = goodKit()
+  k.cards[1] = { term: 'one', definition: 'Same term in other case.' }
+  assertThrows(() => validateOutput('kit', JSON.stringify(k)), InvalidOutput)
+})
+
+Deno.test('kit: a question with two correct options is rejected', () => {
+  const k = goodKit()
+  k.questions[0] = kitQ(1, { options: [
+    { text: 'A', is_correct: true }, { text: 'B', is_correct: true },
+    { text: 'C', is_correct: false }, { text: 'D', is_correct: false },
+  ] })
+  assertThrows(() => validateOutput('kit', JSON.stringify(k)), InvalidOutput)
+})
+
+Deno.test('kit: an unknown difficulty is rejected', () => {
+  const k = goodKit()
+  k.questions[0] = kitQ(1, { difficulty: 'impossible' })
+  assertThrows(() => validateOutput('kit', JSON.stringify(k)), InvalidOutput)
+})
+
+Deno.test('kit: a section with neither summary nor points is rejected', () => {
+  const k = goodKit()
+  k.guide.sections = [{ heading: 'Empty', summary: '  ', points: [] }]
+  assertThrows(() => validateOutput('kit', JSON.stringify(k)), InvalidOutput)
+})
+
+Deno.test('kit: an over-long term is rejected', () => {
+  const k = goodKit()
+  k.cards[0] = { term: 'x'.repeat(201), definition: 'd' }
+  assertThrows(() => validateOutput('kit', JSON.stringify(k)), InvalidOutput)
+})

@@ -97,7 +97,7 @@ class SkeletonResourceCard extends StatelessWidget {
   Widget build(BuildContext context) => const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SkeletonBox(height: 118, radius: 14),
+          SkeletonBox(height: 118, radius: Corners.card),
           SizedBox(height: 12),
           SkeletonBox(height: 15),
           SizedBox(height: 6),

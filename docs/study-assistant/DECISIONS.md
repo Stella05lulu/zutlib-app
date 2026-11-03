@@ -49,7 +49,7 @@ Every choice made while building the module, one line each, with the reason. Rec
 
 ## App
 
-- **New theme file `lib/core/theme/app_theme.dart`, applied only to study screens through `StudyScope`**: the brief's visual rules (IBM Plex, no gradients, no shadows, no pure white or black) conflict with the existing `lib/core/theme.dart` (Inter, gradients, pure white and black). Rewriting the existing theme would change every existing screen, which the brief forbids, so the study module gets its own theme without touching the rest of the app.
+- **New theme file `lib/core/theme/app_theme.dart`, applied only to study screens through `StudyScope`**: the brief's visual rules (IBM Plex, no gradients, no shadows, no pure white or black) conflict with the existing `lib/core/theme.dart` (Inter, gradients, pure white and black). Rewriting the existing theme would change every existing screen, which the brief forbids, so the study module gets its own theme without touching the rest of the app. (Superseded in version 2: the whole app now uses this theme; see "One look for the whole app".)
 - **Palette**: greys for structure, light blue (`sky`) only for AI labels, the correct answer and the back of a flashcard, and one accent (burnt orange) for the main action, the selected tab and errors. Burnt orange is not purple, neon or pastel and reads clearly in both modes.
 - **Errors use the accent colour and correct answers use the light blue**: keeps to one accent instead of adding red and green.
 - **Messages stay inline (`InlineNotice`) next to what they are about**, not in SnackBars.
@@ -59,6 +59,27 @@ Every choice made while building the module, one line each, with the reason. Rec
 - **Study mode is practice only and saves nothing**: cards marked "Not yet" come round again until each is known once; the result is shown on screen.
 - **Seed data is SQL (`scripts/seed_study_demo.sql`) after creating two users in the dashboard**: the same pattern as `scripts/bootstrap_accounts.sql`, and no password is stored in the repository. The script also sets both demo students to active.
 - **No new packages were added**: everything uses packages already in pubspec.yaml.
+
+## One look for the whole app, and a logo (version 2)
+
+- **Every screen now uses the flat study theme** (`lib/core/theme/app_theme.dart`): IBM Plex, grey structure, one blue accent, no gradients, glass, glows or shadows. This replaces the earlier decision to keep the study module's theme separate: the student asked for the whole app's UI and UX to be fixed, and two visual languages in one app (glass on Explore, flat on Study) was the biggest consistency problem. `lib/core/theme.dart` keeps its `Palette`, `Insets` and `Corners` names so no screen had to be rewritten; they now point at the study colours and radii.
+- **Bottom navigation is a standard labelled bar** instead of a floating icon-only glass pill: every tab is named, the unread count is a badge rather than part of the label, and pages no longer scroll under the bar.
+- **Explore leads with search.** The large avatar greeting and the promo banner (which repeated the search hint) are gone; the page title and one line of context sit above the search box.
+- **Catalogue tiles use one solid colour per resource type**, from the same palette as study kits.
+- **Resource details put the actions under the title**, before the details list, so "Open the PDF", "Ask to borrow" and "Study this with AI" are visible without scrolling on a phone.
+- **Logo: concept B, a bookmark with a Z cut through it**, chosen by the student from three concepts. Drawn in code (`ZutLibMark`), with SVG masters and rendered icons in `docs/brand/`.
+
+## Study kits (migration 0014)
+
+- **A note is now a "study kit"**: the same `study_notes` row with a `color` and an optional `youtube_url`. No new parent table, so every earlier note, deck and quiz keeps working; decks and quizzes with no kit show under "Other decks and question banks".
+- **One AI request builds the whole kit** (kind `kit`): study guide, 4 to 40 flashcards and 4 to 30 questions with difficulty, in one Gemini call, validated in the function and again in `study_ai_materialise`. This keeps a kit inside the 10-a-day free allowance (one kit costs one request instead of three).
+- **Empty kits are allowed**: "Proceed without materials" makes a kit with no source. This replaces the 0013 rule that a note must have a source; the 0013 trigger now checks only that a library PDF is still studyable.
+- **YouTube is sent as a `fileData` part with the video URL**, which Gemini reads on Google's side, so ZutLib downloads nothing. Only `https://www.youtube.com/watch?v=<11 chars>` is stored (the app normalises youtu.be and shorts links). The cache key is the URL's SHA-256.
+- **Progress lives in the database** (`study_card_progress` boxes 0 to 3, `study_question_progress` stars 0 to 3), written only through `study_rate_card` and `study_rate_question`, so it follows the student between phone and web.
+- **Tests are stored as a list of question ids** and marked by a trigger (`study_score_test`), like quizzes. Time limits are 0 (none) or 1 to 180 minutes; the app hands in when time runs out.
+- **Games are Matching and True or false**, scored in the app and saved per deck; a top-10 board per game. Scores are capped and only ever the student's own.
+- **The accent colour changed from green to blue** to match a learning product; colours are still flat, with no gradients or shadows, and no purple. Red, green and amber are kept for wrong, right and warning.
+- **Guide download uses the `pdf` and `printing` packages** (free, open source), the only packages added.
 
 ## Study from PDFs (migration 0013)
 

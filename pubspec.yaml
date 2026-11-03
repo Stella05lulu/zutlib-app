@@ -19,6 +19,8 @@ dependencies:
   web: ^1.1.0
   flutter_dotenv: ^5.1.0
   shared_preferences: ^2.3.2
+  pdf: ^3.11.1
+  printing: ^5.13.4
 
 dev_dependencies:
   flutter_test:

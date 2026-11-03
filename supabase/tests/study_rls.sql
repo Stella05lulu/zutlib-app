@@ -321,7 +321,9 @@ select pg_temp.t('PF2', 'A points a note at a PDF in B''s folder', 'error',
 select pg_temp.t('PF3', 'A attaches a file that is not a PDF', 'error',
   $q$insert into public.study_notes (title, file_path, file_name)
      values ('Exe', '00000000-0000-4000-8000-0000000005a0/tool.exe', 'tool.exe')$q$);
-select pg_temp.t('PF4', 'A makes a note with no text and no PDF', 'error',
+-- Since 0014 an empty kit is allowed ("Proceed without materials"); AI
+-- help then has nothing to read (see E25 in study_kits_rls.sql).
+select pg_temp.t('PF4+', 'A makes an empty kit with no text and no PDF', 'rows=1',
   $q$insert into public.study_notes (title, body) values ('Empty', '   ')$q$);
 select pg_temp.t('PF5+', 'A makes a note from a library PDF', 'rows=1',
   $q$insert into public.study_notes (title, resource_id)

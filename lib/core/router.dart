@@ -32,11 +32,14 @@ import '../ui/screens/student/notifications_screen.dart';
 import '../ui/screens/student/resource_detail_screen.dart';
 import '../ui/screens/study/deck_screen.dart';
 import '../ui/screens/study/deck_study_screen.dart';
-import '../ui/screens/study/note_detail_screen.dart';
+import '../models/study.dart' show GameKind, GameKindX;
+import '../ui/screens/study/kit_games_screen.dart';
+import '../ui/screens/study/kit_screen.dart';
 import '../ui/screens/study/note_editor_screen.dart';
 import '../ui/screens/study/quiz_screen.dart';
 import '../ui/screens/study/quiz_take_screen.dart';
 import '../ui/screens/study/study_home_screen.dart';
+import '../ui/screens/study/test_take_screen.dart';
 import '../ui/widgets/shell.dart';
 import 'supabase.dart';
 
@@ -169,9 +172,26 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Study assistant screens open full screen, above the tab bar.
       GoRoute(path: '/study/note/new', builder: (_, __) => const NoteEditorScreen()),
+      // A study kit. ?build=1 starts building it with AI; ?tab=0..4 opens
+      // one of its parts.
       GoRoute(
         path: '/study/note/:id',
-        builder: (_, s) => NoteDetailScreen(noteId: s.pathParameters['id']!),
+        builder: (_, s) => KitScreen(
+          noteId: s.pathParameters['id']!,
+          initialTab: int.tryParse(s.uri.queryParameters['tab'] ?? '') ?? 0,
+          autoBuild: s.uri.queryParameters['build'] == '1',
+        ),
+      ),
+      GoRoute(
+        path: '/study/test/:id',
+        builder: (_, s) => TestTakeScreen(testId: s.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/study/deck/:id/game/:game',
+        builder: (_, s) => KitGameScreen(
+          deckId: s.pathParameters['id']!,
+          game: GameKindX.parse(s.pathParameters['game']) ?? GameKind.matching,
+        ),
       ),
       GoRoute(
         path: '/study/note/:id/edit',

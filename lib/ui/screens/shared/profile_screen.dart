@@ -19,7 +19,7 @@ class ProfileScreen extends ConsumerWidget {
     final async = ref.watch(profileProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: AppBar(title: const Text('Account')),
       body: AsyncView<Profile?>(
         value: async,
         onRetry: () => ref.invalidate(profileProvider),
@@ -100,12 +100,10 @@ class ProfileScreen extends ConsumerWidget {
                             try {
                               await authRepo.sendPasswordReset(email);
                               if (context.mounted) {
-                                showMessage(context, 'Reset link sent to $email.');
+                                showMessage(context, 'Reset link sent to $email. It works once.');
                               }
                             } on Failure catch (f) {
-                              if (context.mounted) {
-                                showMessage(context, f.message, isError: true);
-                              }
+                              if (context.mounted) showMessage(context, f.message, isError: true);
                             }
                           },
                         ),
@@ -125,7 +123,7 @@ class ProfileScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: Insets.xl),
                   Center(
-                    child: Text('ZutLib  ·  Zambia University College of Technology',
+                    child: Text('ZutLib, Zambia University College of Technology',
                         style: Theme.of(context).textTheme.bodySmall),
                   ),
                   const SizedBox(height: Insets.lg),

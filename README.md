@@ -37,16 +37,18 @@ on its own, in order:
     supabase/migrations/0011_book_type.sql           (one line; must run alone)
     supabase/migrations/0012_accounts_roles_library.sql
     supabase/migrations/0013_study_pdfs.sql
+    supabase/migrations/0014_study_kits.sql
 
 0011 must be its own run because Postgres will not use a new enum value in
 the same transaction that adds it. If 0001 to 0010 are already applied,
 start at 0011.
 
-Then run the three test files the same way. Every row must say PASS:
+Then run the four test files the same way. Every row must say PASS:
 
     supabase/tests/rls_negative.sql     borrowing and catalogue rules
     supabase/tests/study_rls.sql        study notes, PDFs, AI tables
     supabase/tests/roles_rls.sql        sign-up, approval, roles, admin actions
+    supabase/tests/study_kits_rls.sql   study kits, guides, progress, tests, games
 
 The tests make their own throwaway rows and remove them at the end.
 

@@ -10,7 +10,6 @@ import '../../../models/resource.dart';
 import '../../../models/profile.dart';
 import '../../../state/providers.dart';
 import '../../widgets/common.dart';
-import '../../widgets/glass.dart';
 import '../../widgets/state_views.dart';
 
 class BrowseScreen extends ConsumerStatefulWidget {
@@ -22,7 +21,6 @@ class BrowseScreen extends ConsumerStatefulWidget {
 class _BrowseScreenState extends ConsumerState<BrowseScreen> {
   final _search = TextEditingController();
   Timer? _debounce;
-  bool _bannerClosed = false;
   bool _loadingMore = false;
 
   @override
@@ -78,12 +76,11 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
     final results = ref.watch(searchProvider);
     final profile = ref.watch(profileProvider).valueOrNull;
     final width = MediaQuery.sizeOf(context).width;
-    // Room for the floating glass nav bar.
-    final bottomGap = MediaQuery.paddingOf(context).bottom + Insets.lg;
+    // Breathing room above the bottom navigation bar.
+    const bottomGap = kNavClearance;
 
     return Scaffold(
-      body: GlassBackground(
-        child: RefreshIndicator(
+      body: RefreshIndicator(
           onRefresh: () async {
             ref.invalidate(searchProvider);
             ref.invalidate(homeShelvesProvider);
@@ -105,17 +102,14 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          if (profile != null) _WelcomeHeader(
-                            name: profile.fullName,
-                            initials: profile.initials,
-                            subtitle: profile.role == UserRole.student
-                                ? (profile.department ?? 'ZUT student')
-                                : 'ZUT ${profile.role.label.toLowerCase()}',
+                          _Header(
+                            firstName: profile?.fullName.split(' ').first,
+                            subtitle: profile == null
+                                ? null
+                                : profile.role == UserRole.student
+                                    ? (profile.department ?? 'ZUT student')
+                                    : 'ZUT ${profile.role.label.toLowerCase()}',
                           ),
-                          if (!_bannerClosed) ...[
-                            const SizedBox(height: Insets.md),
-                            _Banner(onClose: () => setState(() => _bannerClosed = true)),
-                          ],
                           const SizedBox(height: Insets.md),
                           _SearchField(
                             controller: _search,
@@ -200,7 +194,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
                   if (filters.isEmpty) {
                     return [
                       ..._shelves(items),
-                      SliverToBoxAdapter(child: SizedBox(height: bottomGap + 60)),
+                      const SliverToBoxAdapter(child: SizedBox(height: bottomGap)),
                     ];
                   }
                   // Searching or filtering: a results grid.
@@ -222,7 +216,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
                     ),
                     SliverPadding(
                       padding: EdgeInsets.fromLTRB(Insets.md, Insets.sm,
-                          Insets.md, page.hasMore ? Insets.lg : bottomGap + 60),
+                          Insets.md, page.hasMore ? Insets.lg : bottomGap),
                       sliver: SliverGrid(
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: catalogGridColumns(width),
@@ -242,7 +236,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
                     if (page.hasMore)
                       SliverToBoxAdapter(
                         child: Padding(
-                          padding: EdgeInsets.only(bottom: bottomGap + 60),
+                          padding: const EdgeInsets.only(bottom: bottomGap),
                           child: Center(
                             child: OutlinedButton(
                               onPressed: _loadingMore ? null : _loadMore,
@@ -256,7 +250,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
               ),
             ],
           ),
-        ),
       ),
     );
   }
@@ -297,114 +290,34 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
   }
 }
 
-class _WelcomeHeader extends StatelessWidget {
-  const _WelcomeHeader({
-    required this.name,
-    required this.initials,
-    required this.subtitle,
-  });
-  final String name, initials, subtitle;
+/// The page title, then one quiet line saying who is signed in. Search,
+/// the main task, comes straight after it.
+class _Header extends StatelessWidget {
+  const _Header({required this.firstName, required this.subtitle});
+  final String? firstName;
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final t = Theme.of(context).textTheme;
+    final who = [
+      if (firstName != null && firstName!.isNotEmpty) 'Hi $firstName',
+      if (subtitle != null && subtitle!.isNotEmpty) subtitle!,
+    ].join(', ');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          height: 54, width: 54,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: Palette.accentGradient,
-            border: Border.all(
-                color: Colors.white.withValues(alpha: 0.6), width: 2),
-            boxShadow: [
-              BoxShadow(
-                color: Palette.blue.withValues(alpha: 0.35),
-                blurRadius: 18,
-              ),
-            ],
-          ),
-          alignment: Alignment.center,
-          child: Text(initials,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-              )),
-        ),
-        const SizedBox(width: Insets.md),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Welcome, $name',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 2),
-              Text(subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: Palette.inkSoft, fontSize: 14.5)),
-              const SizedBox(height: 2),
-              GestureDetector(
-                onTap: () => context.go('/profile'),
-                child: Text('Edit profile and appearance',
-                    style: TextStyle(
-                      color: Palette.blue,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14.5,
-                    )),
-              ),
-            ],
-          ),
+        Text('Explore', style: t.headlineSmall?.copyWith(fontSize: 28, fontWeight: FontWeight.w700)),
+        const SizedBox(height: Insets.xs),
+        Text(
+          who.isEmpty
+              ? 'Past papers, notes and books from the ZUT library.'
+              : '$who. Past papers, notes and books from the ZUT library.',
+          style: t.bodyLarge?.copyWith(color: Palette.inkSoft),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
         ),
       ],
-    );
-  }
-}
-
-/// Blue gradient strip, in the place of the reference app's promo banner.
-class _Banner extends StatelessWidget {
-  const _Banner({required this.onClose});
-  final VoidCallback onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(Insets.md, 12, 6, 12),
-      decoration: BoxDecoration(
-        gradient: Palette.accentGradient,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF2563EB).withValues(alpha: 0.28),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.auto_awesome_rounded, size: 20, color: Colors.white),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Revise smarter: search any course code to find its past papers.',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 13.5,
-                height: 1.3,
-              ),
-            ),
-          ),
-          IconButton(
-            tooltip: 'Dismiss',
-            onPressed: onClose,
-            icon: const Icon(Icons.close_rounded, color: Colors.white),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -423,10 +336,6 @@ class _SearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    OutlineInputBorder pill(Color c, [double w = 1]) => OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
-          borderSide: BorderSide(color: c, width: w),
-        );
     return TextField(
       controller: controller,
       onChanged: onChanged,
@@ -435,10 +344,6 @@ class _SearchField extends StatelessWidget {
       decoration: InputDecoration(
         hintText: 'Search course code, title or year, e.g. EEE 2011 2024',
         prefixIcon: const Icon(Icons.search_rounded),
-        fillColor: Palette.surface.withValues(alpha: Palette.isDark ? 0.7 : 0.85),
-        border: pill(Palette.line),
-        enabledBorder: pill(Palette.line),
-        focusedBorder: pill(Palette.blue, 2),
         suffixIcon: controller.text.isEmpty
             ? null
             : IconButton(
@@ -467,7 +372,7 @@ class _Shelf extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: Insets.lg),
+      padding: const EdgeInsets.only(top: Insets.xl - Insets.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -477,7 +382,7 @@ class _Shelf extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(title,
-                      style: Theme.of(context).textTheme.headlineSmall),
+                      style: Theme.of(context).textTheme.titleLarge),
                 ),
                 if (onSeeAll != null)
                   TextButton(onPressed: onSeeAll, child: const Text('See all')),
@@ -588,11 +493,12 @@ class _Dropdown<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final active = value != null;
     return Container(
-      height: 38,
+      height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 12),
+      alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: active ? Palette.blueWash : Palette.surface.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(20),
+        color: active ? Palette.blueWash : Palette.surface,
+        borderRadius: BorderRadius.circular(Corners.field),
         border: Border.all(color: active ? Palette.blue : Palette.line),
       ),
       child: DropdownButtonHideUnderline(

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme.dart';
+import '../../../core/theme/app_theme.dart' show Mono;
 import '../../../models/borrow_request.dart';
 import '../../../state/providers.dart';
 import '../../widgets/common.dart';
@@ -100,8 +101,8 @@ class RequestQueueScreen extends ConsumerWidget {
                       SizedBox(height: 60),
                       EmptyView(
                         icon: Icons.inbox_outlined,
-                        headline: 'Nothing here',
-                        body: 'No requests are in this state right now.',
+                        headline: 'No requests here',
+                        body: 'Nothing is waiting in this list right now. New requests appear as students send them.',
                       ),
                     ]);
                   }
@@ -142,13 +143,7 @@ class _Stat extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('$value',
-                style: TextStyle(
-                  fontSize: 25,
-                  fontWeight: FontWeight.w600,
-                  color: color,
-                  letterSpacing: -0.6,
-                )),
+            Text('$value', style: Mono.of(context, size: 24, weight: FontWeight.w600, color: color)),
             Text(label, style: Theme.of(context).textTheme.bodySmall),
           ],
         ),

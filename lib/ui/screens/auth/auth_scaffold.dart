@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme.dart' show kWideBreakpoint;
 import '../../../core/theme/app_theme.dart';
+import '../../widgets/brand.dart';
 
 /// Every entry screen (sign in, create account, verify, waiting for
-/// approval, choose a password): a flat grey page, the wordmark, and the
+/// approval, choose a password): a flat grey page, the ZutLib logo, and the
 /// form on a bordered panel. Uses the flat ZutLib theme from
 /// lib/core/theme/app_theme.dart.
 class AuthScaffold extends StatelessWidget {
@@ -36,22 +37,9 @@ class AuthScaffold extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            height: 30,
-                            width: 30,
-                            decoration: BoxDecoration(
-                              color: c.ink,
-                              borderRadius: BorderRadius.circular(Radii.control),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text('ZL',
-                                style: Mono.of(context, size: 12, weight: FontWeight.w600, color: c.canvas)),
-                          ),
-                          const SizedBox(width: Gap.snug),
-                          Text('ZutLib', style: t.titleMedium),
-                        ],
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: ZutLibLogo(height: 34),
                       ),
                       const SizedBox(height: Gap.section),
                       Container(

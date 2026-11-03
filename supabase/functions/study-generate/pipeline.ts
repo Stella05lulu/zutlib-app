@@ -32,6 +32,8 @@ export interface PreparedNote {
   /** 'study-files' for a student's upload, 'resources' for a library PDF. */
   file_bucket?: string | null
   file_path?: string | null
+  /** A kit's YouTube video, in the standard watch form. */
+  youtube_url?: string | null
 }
 
 export interface CacheLookup {
@@ -69,7 +71,7 @@ export interface Deps {
    *  -1 if the student's limit is used up, -2 if the project's is. */
   consume(userId: string): Promise<number>
   /** Returns Gemini's raw answer text. */
-  generate(kind: Kind, title: string, body: string, pdf: Uint8Array | null): Promise<string>
+  generate(kind: Kind, title: string, body: string, pdf: Uint8Array | null, youtubeUrl: string | null): Promise<string>
   store(
     userId: string, noteId: string, kind: Kind, hash: string,
     result: GeneratedResult, fileSha: string,
@@ -92,7 +94,7 @@ export const MESSAGES = {
   bad_request: 'That request was not understood. Update the app and try again.',
   not_student: 'AI help is available to approved student accounts only.',
   not_found: 'That note could not be found. It may have been deleted.',
-  no_source: 'This note has no text or PDF to study from. Add some text or attach a PDF.',
+  no_source: 'This kit has no materials yet. Add a PDF, a YouTube video or some text first.',
   limit_reached: 'You have used all of today\'s AI requests. They renew at midnight. Everything else still works.',
   project_limit_reached: 'AI help has reached its limit for today across ZutLib. Try again tomorrow. Everything else still works.',
   input_too_long: `This note is too long for AI help. Keep the typed text under ${MAX_INPUT_CHARS.toLocaleString('en')} characters, or split it into two notes.`,
@@ -102,6 +104,7 @@ export const MESSAGES = {
   ai_busy: 'The AI service is busy right now. Wait a minute and try again.',
   ai_blocked: 'The AI service declined to process this material. You can still write your own summary, cards or quiz.',
   ai_failed: 'The AI service did not answer. Try again in a moment. Your notes, cards and quizzes still work.',
+  ai_video: 'The AI could not watch that video. Check it is public (not private or unlisted) and try again.',
   ai_invalid_output: 'The AI answer was not usable, so nothing was saved. Try again.',
   note_changed: 'The note was edited while the AI was working, so nothing was saved. Try again.',
   server_error: 'Something went wrong on the server. Try again.',
@@ -184,12 +187,15 @@ export async function run(
     }
     fileSha = await sha256Hex(pdf)
   }
+  // A video is fingerprinted by its link, so the cache key changes with it.
+  const youtubeUrl = typeof prepared.youtube_url === 'string' && prepared.youtube_url ? prepared.youtube_url : null
+  if (youtubeUrl) fileSha = await sha256Hex(new TextEncoder().encode(`youtube:${youtubeUrl}`))
 
   // ---- 4. cache: this exact content has been done before
   const lookup = await deps.findCache(userId, noteId, kind, fileSha)
   if (lookup.cache_id) {
     const item = await deps.materialise(userId, lookup.cache_id)
-    deps.log('cache_hit', { kind, reused: item.reused, pdf: pdf !== null })
+    deps.log('cache_hit', { kind, reused: item.reused, pdf: pdf !== null, video: youtubeUrl !== null })
     return {
       status: 200,
       body: { ...item, cached: true, remaining: prepared.remaining ?? 0 },
@@ -203,7 +209,7 @@ export async function run(
 
   let raw: string
   try {
-    raw = await deps.generate(kind, title, noteBody, pdf)
+    raw = await deps.generate(kind, title, noteBody, pdf, youtubeUrl)
   } catch (e) {
     const code: Code = e instanceof ModelError ? e.code : 'ai_failed'
     deps.log('model_error', { kind, code })
@@ -232,6 +238,6 @@ export async function run(
   }
 
   // ---- 8. done
-  deps.log('generated', { kind, pdf: pdf !== null })
+  deps.log('generated', { kind, pdf: pdf !== null, video: youtubeUrl !== null })
   return { status: 200, body: { ...item, cached: false, remaining } }
 }

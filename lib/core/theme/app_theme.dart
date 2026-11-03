@@ -1,21 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// The study assistant's look, in one file.
+/// ZutLib's look, in one file.
 ///
-/// The rest of ZutLib keeps its own theme (lib/core/theme.dart). The study
-/// screens wrap themselves in [StudyScope], which swaps in the theme built
-/// here, so this module can follow its own visual rules without changing
-/// any existing screen:
+/// Every screen uses the theme built here: main.dart installs it through
+/// lib/core/theme.dart, and the older `Palette` names there map onto these
+/// colours. [StudyScope] is kept so screens that wrap themselves in it keep
+/// working; it now hands back the same theme. The rules:
 ///
 ///   - IBM Plex Sans for text, IBM Plex Mono for machine values
 ///     (counts, scores, dates, the requests left today)
-///   - grey for structure, light blue used sparingly (AI labels, the
-///     correct answer, the back of a flashcard), and one accent colour,
-///     burnt orange, for the main action on a screen and for errors
-///   - flat: no gradients, no shadows, no pure white or pure black
+///   - grey for structure; one accent, a confident blue, for the main
+///     action, the selected tab and progress; teal (`sky`) for AI labels
+///     and information; and three signal colours used only for meaning:
+///     green for right and "got it", yellow for "not sure", red for wrong,
+///     "again" and errors
+///   - study kits get a solid colour each from [KitPalette], like course
+///     tiles in an online-learning catalogue
+///   - flat: no gradients, no shadows, no pure white or pure black, and no
+///     purple anywhere
 ///
-/// Every colour the study screens use is defined below and nowhere else.
+/// Every colour the app uses is defined below and nowhere else.
 @immutable
 class StudyColors extends ThemeExtension<StudyColors> {
   const StudyColors({
@@ -32,6 +37,12 @@ class StudyColors extends ThemeExtension<StudyColors> {
     required this.accent,
     required this.onAccent,
     required this.accentWash,
+    required this.danger,
+    required this.dangerWash,
+    required this.success,
+    required this.successWash,
+    required this.warn,
+    required this.warnWash,
   });
 
   /// Page background.
@@ -55,8 +66,11 @@ class StudyColors extends ThemeExtension<StudyColors> {
   /// The light blue: text or icons in [sky], fills in [skyWash].
   final Color sky, skyWash;
 
-  /// The single accent: the main action, the selected tab, errors.
+  /// The accent: the main action, the selected tab, progress.
   final Color accent, onAccent, accentWash;
+
+  /// Signals: wrong and errors, right, not sure.
+  final Color danger, dangerWash, success, successWash, warn, warnWash;
 
   static const light = StudyColors(
     canvas: Color(0xFFF2F3F5),
@@ -67,11 +81,17 @@ class StudyColors extends ThemeExtension<StudyColors> {
     ink: Color(0xFF1C2027),
     inkSoft: Color(0xFF4B5361),
     inkFaint: Color(0xFF7A8290),
-    sky: Color(0xFF2D6A9F),
-    skyWash: Color(0xFFDCEAF6),
-    accent: Color(0xFFB4501A),
-    onAccent: Color(0xFFFBF7F4),
-    accentWash: Color(0xFFF6E6DC),
+    sky: Color(0xFF1F6F78),
+    skyWash: Color(0xFFDDEFF1),
+    accent: Color(0xFF1D5FC4),
+    onAccent: Color(0xFFF6F9FD),
+    accentWash: Color(0xFFE1EBF9),
+    danger: Color(0xFFB3361F),
+    dangerWash: Color(0xFFF8E4DF),
+    success: Color(0xFF237A47),
+    successWash: Color(0xFFDFF1E6),
+    warn: Color(0xFF8F5B00),
+    warnWash: Color(0xFFFAEFD7),
   );
 
   static const dark = StudyColors(
@@ -83,11 +103,17 @@ class StudyColors extends ThemeExtension<StudyColors> {
     ink: Color(0xFFE6E8EB),
     inkSoft: Color(0xFFAAB1BC),
     inkFaint: Color(0xFF7D8592),
-    sky: Color(0xFF9CC5EA),
-    skyWash: Color(0xFF1E3245),
-    accent: Color(0xFFE38A52),
-    onAccent: Color(0xFF231308),
-    accentWash: Color(0xFF3A2416),
+    sky: Color(0xFF8ED2DA),
+    skyWash: Color(0xFF173539),
+    accent: Color(0xFF86B3F4),
+    onAccent: Color(0xFF0D1A2E),
+    accentWash: Color(0xFF1B2B44),
+    danger: Color(0xFFF2937F),
+    dangerWash: Color(0xFF3B201A),
+    success: Color(0xFF84D2A2),
+    successWash: Color(0xFF16321F),
+    warn: Color(0xFFEFC46A),
+    warnWash: Color(0xFF3A2E12),
   );
 
   /// The colours for the current brightness.
@@ -110,6 +136,12 @@ class StudyColors extends ThemeExtension<StudyColors> {
     Color? accent,
     Color? onAccent,
     Color? accentWash,
+    Color? danger,
+    Color? dangerWash,
+    Color? success,
+    Color? successWash,
+    Color? warn,
+    Color? warnWash,
   }) =>
       StudyColors(
         canvas: canvas ?? this.canvas,
@@ -125,6 +157,12 @@ class StudyColors extends ThemeExtension<StudyColors> {
         accent: accent ?? this.accent,
         onAccent: onAccent ?? this.onAccent,
         accentWash: accentWash ?? this.accentWash,
+        danger: danger ?? this.danger,
+        dangerWash: dangerWash ?? this.dangerWash,
+        success: success ?? this.success,
+        successWash: successWash ?? this.successWash,
+        warn: warn ?? this.warn,
+        warnWash: warnWash ?? this.warnWash,
       );
 
   @override
@@ -145,8 +183,30 @@ class StudyColors extends ThemeExtension<StudyColors> {
       accent: mix(accent, other.accent),
       onAccent: mix(onAccent, other.onAccent),
       accentWash: mix(accentWash, other.accentWash),
+      danger: mix(danger, other.danger),
+      dangerWash: mix(dangerWash, other.dangerWash),
+      success: mix(success, other.success),
+      successWash: mix(successWash, other.successWash),
+      warn: mix(warn, other.warn),
+      warnWash: mix(warnWash, other.warnWash),
     );
   }
+}
+
+/// The solid colour of each study kit's tile, and the text colour that
+/// reads on it. The same in light and dark mode, like printed book covers.
+abstract final class KitPalette {
+  static Color fill(String key) => switch (key) {
+        'red' => const Color(0xFFD5402F),
+        'yellow' => const Color(0xFFF2B11B),
+        'green' => const Color(0xFF26935A),
+        'orange' => const Color(0xFFE8702A),
+        'teal' => const Color(0xFF158E95),
+        'slate' => const Color(0xFF475467),
+        _ => const Color(0xFF2563D6),
+      };
+
+  static Color onFill(String key) => key == 'yellow' ? const Color(0xFF1C2027) : const Color(0xFFFBFCFD);
 }
 
 /// Spacing steps. Screens pick the step that suits the gap (a tight label
@@ -198,8 +258,8 @@ abstract final class StudyTheme {
       onPrimary: c.onAccent,
       secondary: c.sky,
       onSecondary: c.surface,
-      error: c.accent,
-      onError: c.onAccent,
+      error: c.danger,
+      onError: c.surface,
       surface: c.surface,
       onSurface: c.ink,
       surfaceTint: c.surface,
@@ -267,13 +327,13 @@ abstract final class StudyTheme {
         border: border(c.line),
         enabledBorder: border(c.line),
         focusedBorder: border(c.sky, 1.5),
-        errorBorder: border(c.accent),
-        focusedErrorBorder: border(c.accent, 1.5),
+        errorBorder: border(c.danger),
+        focusedErrorBorder: border(c.danger, 1.5),
         labelStyle: TextStyle(color: c.inkSoft),
         floatingLabelStyle: TextStyle(color: c.sky),
         hintStyle: TextStyle(color: c.inkFaint),
         helperStyle: TextStyle(color: c.inkFaint),
-        errorStyle: TextStyle(color: c.accent),
+        errorStyle: TextStyle(color: c.danger),
         counterStyle: GoogleFonts.ibmPlexMono(fontSize: 11.5, color: c.inkFaint),
       ),
       filledButtonTheme: FilledButtonThemeData(
@@ -356,6 +416,83 @@ abstract final class StudyTheme {
       checkboxTheme: CheckboxThemeData(
         side: BorderSide(color: c.lineStrong, width: 1.5),
       ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: c.surface,
+        surfaceTintColor: c.surface,
+        elevation: 0,
+        height: 66,
+        indicatorColor: c.accentWash,
+        indicatorShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.panel + 6)),
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        iconTheme: WidgetStateProperty.resolveWith((states) => IconThemeData(
+              size: 24,
+              color: states.contains(WidgetState.selected) ? c.accent : c.inkSoft,
+            )),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) => text.labelSmall?.copyWith(
+              fontSize: 12,
+              fontWeight: states.contains(WidgetState.selected) ? FontWeight.w600 : FontWeight.w500,
+              color: states.contains(WidgetState.selected) ? c.ink : c.inkSoft,
+            )),
+      ),
+      navigationRailTheme: NavigationRailThemeData(
+        backgroundColor: c.surface,
+        elevation: 0,
+        indicatorColor: c.accentWash,
+        selectedIconTheme: IconThemeData(color: c.accent),
+        unselectedIconTheme: IconThemeData(color: c.inkSoft),
+        selectedLabelTextStyle: text.labelLarge?.copyWith(color: c.ink),
+        unselectedLabelTextStyle: text.labelLarge?.copyWith(color: c.inkSoft, fontWeight: FontWeight.w500),
+      ),
+      badgeTheme: BadgeThemeData(
+        backgroundColor: c.danger,
+        textColor: c.surface,
+        textStyle: GoogleFonts.ibmPlexMono(fontSize: 10.5, fontWeight: FontWeight.w600),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: SegmentedButton.styleFrom(
+          selectedBackgroundColor: c.accentWash,
+          selectedForegroundColor: c.ink,
+          foregroundColor: c.inkSoft,
+          side: BorderSide(color: c.line),
+          shape: buttonShape,
+          textStyle: text.labelLarge,
+        ),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: c.surface,
+        selectedColor: c.accentWash,
+        side: BorderSide(color: c.line),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.control)),
+        labelStyle: text.labelLarge?.copyWith(fontSize: 13.5, color: c.ink),
+        elevation: 0,
+        pressElevation: 0,
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: c.ink,
+        contentTextStyle: text.bodyMedium?.copyWith(color: c.canvas),
+        actionTextColor: c.canvas,
+        behavior: SnackBarBehavior.floating,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.control)),
+      ),
+      listTileTheme: ListTileThemeData(
+        iconColor: c.inkSoft,
+        textColor: c.ink,
+        contentPadding: const EdgeInsets.symmetric(horizontal: Gap.page - 4, vertical: Gap.hair),
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected) ? c.onAccent : c.lineStrong),
+        trackColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected) ? c.accent : c.sunken),
+        trackOutlineColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected) ? c.accent : c.lineStrong),
+      ),
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: c.accent,
+        selectionColor: c.accentWash,
+        selectionHandleColor: c.accent,
+      ),
       tooltipTheme: TooltipThemeData(
         decoration: BoxDecoration(
           color: c.ink,
@@ -367,8 +504,10 @@ abstract final class StudyTheme {
   }
 }
 
-/// Puts the study theme around a study screen, following whatever
-/// brightness the app is showing (light, dark or automatic).
+/// Puts the ZutLib theme around a screen, following whatever brightness the
+/// app is showing (light, dark or automatic). Since the whole app now uses
+/// this theme, it changes nothing; it stays so existing screens keep
+/// building.
 class StudyScope extends StatelessWidget {
   const StudyScope({super.key, required this.child});
   final Widget child;

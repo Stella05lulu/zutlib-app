@@ -24,6 +24,11 @@ export const MAX_INPUT_CHARS = 12000
 // truncated answer is invalid JSON and is thrown away.
 export const MAX_OUTPUT_TOKENS = 8192
 
+// A whole study kit (guide, up to 40 cards, up to 30 questions) is a much
+// longer answer, so it gets a larger allowance. Output on the free tier
+// costs nothing; this only stops a runaway answer.
+export const MAX_OUTPUT_TOKENS_KIT = 24576
+
 // How long to wait for Gemini before giving up, in milliseconds. A PDF can
 // take a while to read; Supabase stops a free-plan function that has not
 // answered after 150 seconds, so this stays well under that.

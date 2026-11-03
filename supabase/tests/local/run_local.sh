@@ -3,7 +3,8 @@
 # database. Nothing here touches the real Supabase project.
 #
 #   1. builds an empty database with supabase_shim.sql and every migration
-#   2. runs the SQL security tests: rls_negative, study_rls, roles_rls
+#   2. runs the SQL security tests: rls_negative, study_rls, roles_rls,
+#      study_kits_rls
 #   3. runs the last-copy race test
 #   4. starts PostgREST on that database and runs the Edge Function tests
 #      (study-generate and admin-users), including both end-to-end tests
@@ -22,7 +23,7 @@ PGRST_PORT="${PGRST_PORT:-3010}"
 bash "$ROOT/supabase/tests/local/fresh_db.sh" "$DB"
 echo "migrations: all applied"
 
-for t in rls_negative study_rls roles_rls; do
+for t in rls_negative study_rls roles_rls study_kits_rls; do
   result="$(psql -q -d "$DB" -P pager=off -f "$ROOT/supabase/tests/$t.sql" 2>&1)"
   pass=$(grep -cE '\| PASS *$' <<<"$result" || true)
   fail=$(grep -cE '\| FAIL *$' <<<"$result" || true)

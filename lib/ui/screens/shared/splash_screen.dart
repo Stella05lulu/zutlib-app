@@ -6,6 +6,7 @@ import '../../../core/failure.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
 import '../../../state/providers.dart';
+import '../../widgets/brand.dart';
 
 /// The gate. It resolves the session and profile once, then hands over.
 class SplashScreen extends ConsumerStatefulWidget {
@@ -105,24 +106,19 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         ),
       );
     }
+    // Flat page, the logo, and a small spinner while the session is checked.
     return Scaffold(
-      backgroundColor: Palette.blueDeep,
+      backgroundColor: Palette.canvas,
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('ZutLib',
-                style: TextStyle(
-                  color: Palette.onAccent,
-                  fontSize: 30,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.8,
-                )),
-            SizedBox(height: Insets.lg),
+            const ZutLibLogo(height: 44),
+            const SizedBox(height: Insets.xl),
             SizedBox(
-              width: 22, height: 22,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.2, color: Palette.onAccent.withValues(alpha: 0.54)),
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2.2, color: Palette.blue),
             ),
           ],
         ),

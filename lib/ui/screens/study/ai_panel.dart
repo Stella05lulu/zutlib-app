@@ -37,6 +37,7 @@ class _AiPanelState extends ConsumerState<AiPanel> {
       StudyKind.summary => 'Writing a summary of $what.',
       StudyKind.flashcards => 'Making flashcards from $what.',
       StudyKind.quiz => 'Writing quiz questions from $what.',
+      StudyKind.kit => 'Building a study kit from $what.',
     };
   }
 
@@ -58,6 +59,7 @@ class _AiPanelState extends ConsumerState<AiPanel> {
         StudyKind.summary => 'Summary added below.',
         StudyKind.flashcards => 'Flashcard deck ready.',
         StudyKind.quiz => 'Quiz ready.',
+        StudyKind.kit => 'Study kit ready.',
       };
       setState(() {
         _running = null;
@@ -183,7 +185,7 @@ class _Allowance extends ConsumerWidget {
             TextSpan(
                 text: '${s.remaining}',
                 style: Mono.of(context, size: 13, weight: FontWeight.w600,
-                    color: s.remaining == 0 ? c.accent : c.ink)),
+                    color: s.remaining == 0 ? c.danger : c.ink)),
             TextSpan(text: ' of ', style: Theme.of(context).textTheme.bodySmall),
             TextSpan(text: '${s.dailyLimit}', style: Mono.of(context, size: 13)),
             TextSpan(text: ' left today', style: Theme.of(context).textTheme.bodySmall),

@@ -328,3 +328,29 @@ Deno.test('logs never contain the PDF content', async () => {
   await run('Bearer good-token', request, d)
   for (const line of d.logs) assert(!line.includes(SECRET_TEXT), `PDF text leaked into a log: ${line}`)
 })
+
+Deno.test('a video kit: the link goes to Gemini and is part of the cache key', async () => {
+  const URL = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+  let sentVideo: string | null = null
+  let cacheSha = ''
+  const d = fake({
+    prepare: () => Promise.resolve({ title: 'Lecture', body: '', remaining: 10, youtube_url: URL }),
+    findCache: (_u, _n, _k, sha) => { cacheSha = sha; return Promise.resolve({ content_hash: HASH, cache_id: null }) },
+    generate: (_k, _t, _b, _p, video) => { sentVideo = video; return Promise.resolve('{"summary":"From the video."}') },
+  })
+  const out = await run('Bearer good-token', { type: 'summary', note_id: NOTE }, d)
+  assertEquals(out.status, 200)
+  assertEquals(sentVideo, URL)
+  assertEquals(cacheSha, await sha256Hex(new TextEncoder().encode(`youtube:${URL}`)))
+  assertEquals(d.calls.downloadFile, undefined)
+})
+
+Deno.test('kit is an accepted request type', async () => {
+  const d = fake({ store: () => Promise.resolve({ kind: 'kit', id: NOTE, reused: false }) })
+  const out = await run('Bearer good-token', { type: 'kit', note_id: NOTE }, d)
+  assertEquals(d.calls.generate, 1)
+  // The stand-in Gemini answers with a summary, which is not a kit, so it
+  // must be refused and nothing stored.
+  assertEquals(out.status, 502)
+  assertEquals(d.calls.store, undefined)
+})

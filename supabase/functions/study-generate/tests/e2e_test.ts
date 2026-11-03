@@ -26,6 +26,30 @@ const PAPER = '00000000-0000-4000-8000-0000000007f1'
 
 const pdfBytes = (text: string) => new TextEncoder().encode(`%PDF-1.4\n${text}\n%%EOF`)
 
+const VIDEO_A = '00000000-0000-4000-8000-0000000007a6'
+const VIDEO_URL = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+
+const kitQuestion = (i: number, difficulty: string) => ({
+  question: `Kit question ${i}?`,
+  options: [
+    { text: 'Right', is_correct: true }, { text: 'Wrong A', is_correct: false },
+    { text: 'Wrong B', is_correct: false }, { text: 'Wrong C', is_correct: false },
+  ],
+  explanation: 'Because the material says so.',
+  difficulty,
+})
+const goodKit = JSON.stringify({
+  guide: {
+    overview: 'Ohm\'s law relates voltage, current and resistance.',
+    sections: [
+      { heading: 'Ohm\'s law', summary: 'V equals I times R.', points: ['V = I R', 'Resistance is in ohms'] },
+      { heading: 'Units', summary: '', points: ['Volt', 'Ampere', 'Ohm'] },
+    ],
+  },
+  cards: ['Voltage', 'Current', 'Resistance', 'Ohm', 'Power'].map((t) => ({ term: t, definition: `What ${t} means.` })),
+  questions: [kitQuestion(1, 'easy'), kitQuestion(2, 'medium'), kitQuestion(3, 'hard'), kitQuestion(4, 'hard'), kitQuestion(5, 'easy')],
+})
+
 const goodQuiz = JSON.stringify({ questions: [
   { question: 'V = ?', options: [
     { text: 'I R', is_correct: true }, { text: 'I / R', is_correct: false },
@@ -60,6 +84,8 @@ Deno.test({
         ('${BIG_A}', '${A}', 'Big book', '${A}/big.pdf', 'big.pdf');
       insert into public.study_notes (id, user_id, title, resource_id) values
         ('${LIB_A}', '${A}', 'E2E Circuits exam', '${PAPER}');
+      insert into public.study_notes (id, user_id, title, body, youtube_url) values
+        ('${VIDEO_A}', '${A}', 'Video lecture', '', '${VIDEO_URL}');
     `)
 
     const gateway = startGateway()
@@ -73,10 +99,13 @@ Deno.test({
 
     let geminiCalls = 0
     let lastPdf: Uint8Array | null = null
+    let lastVideo: string | null = null
     let nextAnswer = '{"summary":"Ohm\'s law says voltage equals current times resistance."}'
     const deps: Deps = {
       ...restDeps({ url: gateway.url, anonKey: 'anon', serviceKey: service }),
-      generate: (_k, _t, _b, pdf) => { geminiCalls++; lastPdf = pdf; return Promise.resolve(nextAnswer) },
+      generate: (_k, _t, _b, pdf, video) => {
+        geminiCalls++; lastPdf = pdf; lastVideo = video; return Promise.resolve(nextAnswer)
+      },
       log: () => {},
     }
     const call = (token: string | null, type: string, note: string) =>
@@ -182,6 +211,50 @@ Deno.test({
         const cards = await asStudent(tokenA, `study_flashcards?deck_id=eq.${out.body.id}&select=front&order=position`)
         assertEquals(cards, [{ front: 'Ohm\'s law?' }, { front: 'Unit of resistance?' }])
       })
+
+      await t.step('a whole study kit in one request: guide, deck and question bank', async () => {
+        nextAnswer = goodKit
+        const before = geminiCalls
+        const out = await call(tokenA, 'kit', NOTE_A)
+        assertEquals(out.status, 200)
+        assertEquals(geminiCalls, before + 1)
+        assertEquals(out.body.kind, 'kit')
+        assertEquals(out.body.id, NOTE_A)
+        const guides = await asStudent(tokenA, `study_guides?note_id=eq.${NOTE_A}&select=overview,deck_id,quiz_id`)
+        assertEquals(guides.length, 1)
+        const g = guides[0] as { deck_id: string; quiz_id: string }
+        assertEquals(g.deck_id, out.body.deck_id)
+        const cards = await asStudent(tokenA, `study_flashcards?deck_id=eq.${g.deck_id}&select=front&order=position`)
+        assertEquals(cards.length, 5)
+        const hard = await asStudent(tokenA, `study_quiz_questions?quiz_id=eq.${g.quiz_id}&difficulty=eq.3&select=id`)
+        assertEquals(hard.length, 2)
+      })
+
+      await t.step('the same kit again comes from the cache and is not copied', async () => {
+        const before = geminiCalls
+        const out = await call(tokenA, 'kit', NOTE_A)
+        assertEquals(out.body.cached, true)
+        assertEquals(out.body.reused, true)
+        assertEquals(geminiCalls, before)
+        const decks = await asStudent(tokenA, `study_decks?note_id=eq.${NOTE_A}&source=eq.ai&title=eq.Circuits&select=id`)
+        assertEquals(decks.length, 1)
+      })
+
+      await t.step('a kit from a YouTube video sends the video link to Gemini', async () => {
+        nextAnswer = goodKit
+        const out = await call(tokenA, 'kit', VIDEO_A)
+        assertEquals(out.status, 200)
+        assertEquals(lastVideo, VIDEO_URL)
+        assertEquals(lastPdf, null)
+      })
+
+      await t.step('B cannot see A\'s study guide', async () => {
+        assertEquals((await asStudent(tokenB, 'study_guides?select=id')).length, 0)
+      })
+
+      // The two kit requests above spent two of A's ten a day. Hand them
+      // back so the steps below see the same allowance they always did.
+      await sql(`update public.study_ai_usage set count = count - 2 where user_id = '${A}'`)
 
       await t.step('a quiz from an uploaded PDF: the PDF itself is sent to Gemini', async () => {
         nextAnswer = goodQuiz

@@ -279,14 +279,14 @@ class _Review extends StatelessWidget {
               Text('$number', style: Mono.of(context, size: 12)),
               const SizedBox(width: Gap.tight),
               Text(right ? 'Correct' : (chosen == null ? 'Not answered' : 'Wrong'),
-                  style: Mono.of(context, size: 12, weight: FontWeight.w600, color: right ? c.sky : c.accent)),
+                  style: Mono.of(context, size: 12, weight: FontWeight.w600, color: right ? c.success : c.danger)),
             ],
           ),
           const SizedBox(height: Gap.hair + 2),
           Text(q.prompt, style: t.titleMedium),
           const SizedBox(height: Gap.tight),
           if (!right && chosen != null && chosen! < q.options.length)
-            Text('Your answer: ${q.options[chosen!]}', style: t.bodyMedium?.copyWith(color: c.accent)),
+            Text('Your answer: ${q.options[chosen!]}', style: t.bodyMedium?.copyWith(color: c.danger)),
           Text('Correct answer: ${q.options[q.correctIndex]}', style: t.bodyMedium?.copyWith(color: c.ink)),
           if (q.explanation != null) ...[
             const SizedBox(height: Gap.hair + 2),

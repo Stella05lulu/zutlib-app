@@ -197,6 +197,11 @@ void main() {
     List<Color> all(StudyColors c) => [
           c.canvas, c.surface, c.sunken, c.line, c.lineStrong, c.ink, c.inkSoft,
           c.inkFaint, c.sky, c.skyWash, c.accent, c.onAccent, c.accentWash,
+          c.danger, c.dangerWash, c.success, c.successWash, c.warn, c.warnWash,
+        ];
+    final kitKeys = KitColor.values.map((k) => k.wire).toList();
+    List<Color> kitColours() => [
+          for (final k in kitKeys) ...[KitPalette.fill(k), KitPalette.onFill(k)],
         ];
 
     test('no pure white or pure black in either mode', () {
@@ -204,6 +209,25 @@ void main() {
         expect(c.toARGB32(), isNot(0xFFFFFFFF));
         expect(c.toARGB32(), isNot(0xFF000000));
       }
+    });
+
+    test('no pure white or pure black on any kit tile', () {
+      for (final c in kitColours()) {
+        expect(c.toARGB32(), isNot(0xFFFFFFFF));
+        expect(c.toARGB32(), isNot(0xFF000000));
+      }
+    });
+
+    test('no purple anywhere: no saturated colour has a hue between 255 and 320 degrees', () {
+      for (final c in [...all(StudyColors.light), ...all(StudyColors.dark), ...kitColours()]) {
+        final hsv = HSVColor.fromColor(c);
+        final purple = hsv.saturation > 0.25 && hsv.hue >= 255 && hsv.hue <= 320;
+        expect(purple, isFalse, reason: c.toARGB32().toRadixString(16));
+      }
+    });
+
+    test('every kit colour has its own tile colour', () {
+      expect(kitKeys.map(KitPalette.fill).toSet().length, KitColor.values.length);
     });
 
     test('light and dark modes are different palettes', () {

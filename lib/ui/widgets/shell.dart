@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../models/profile.dart';
 import '../../state/providers.dart';
-import 'glass.dart';
+import 'brand.dart';
 
 class NavTarget {
   const NavTarget(this.path, this.label, this.icon, this.activeIcon);
@@ -52,17 +52,9 @@ class AppShell extends ConsumerWidget {
       UserRole.librarian => _staffNav,
       _ => _studentNav,
     };
-    // The Updates tab changes icon and shows a count while anything is unread.
+    // The Updates tab shows a count badge while anything is unread.
     final unread = ref.watch(unreadCountProvider);
-    final targets = [
-      for (final t in roleTargets)
-        if (t.path == '/updates' && unread > 0)
-          NavTarget(t.path, 'Updates ($unread new)',
-              Icons.notifications_active_outlined,
-              Icons.notifications_active_rounded)
-        else
-          t,
-    ];
+    final targets = roleTargets;
 
     // The tab whose path matches most of the location ("/admin/users"
     // picks Users, not Dashboard).
@@ -79,13 +71,28 @@ class AppShell extends ConsumerWidget {
 
     void go(int i) => context.go(targets[i].path);
 
+    Widget icon(NavTarget t, {required bool selected}) {
+      final glyph = Icon(selected ? t.activeIcon : t.icon);
+      if (t.path != '/updates' || unread == 0) return glyph;
+      return Badge(label: Text(unread > 99 ? '99+' : '$unread'), child: glyph);
+    }
+
+    String tooltip(NavTarget t) =>
+        t.path == '/updates' && unread > 0 ? '${t.label}, $unread unread' : t.label;
+
     final wide = MediaQuery.sizeOf(context).width >= kWideBreakpoint;
 
     if (wide) {
       return Scaffold(
         body: Row(
           children: [
-            _Rail(targets: targets, index: index, onSelect: go, profile: profile),
+            _Rail(
+              targets: targets,
+              index: index,
+              onSelect: go,
+              profile: profile,
+              icon: icon,
+            ),
             const VerticalDivider(width: 1),
             Expanded(child: child),
           ],
@@ -93,16 +100,25 @@ class AppShell extends ConsumerWidget {
       );
     }
 
-    // The bar floats over the content, so pages scroll underneath the glass.
+    // A standard bottom bar with a label under every icon: nothing to
+    // guess, and the page above it never hides behind it.
     return Scaffold(
-      extendBody: true,
       body: child,
-      bottomNavigationBar: GlassNavBar(
-        index: index,
-        onSelect: go,
-        items: [
-          for (final t in targets) GlassNavItem(t.label, t.icon, t.activeIcon),
-        ],
+      bottomNavigationBar: DecoratedBox(
+        decoration: BoxDecoration(border: Border(top: BorderSide(color: Palette.line))),
+        child: NavigationBar(
+          selectedIndex: index,
+          onDestinationSelected: go,
+          destinations: [
+            for (final t in targets)
+              NavigationDestination(
+                icon: icon(t, selected: false),
+                selectedIcon: icon(t, selected: true),
+                label: t.label,
+                tooltip: tooltip(t),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -114,15 +130,18 @@ class _Rail extends StatelessWidget {
     required this.index,
     required this.onSelect,
     required this.profile,
+    required this.icon,
   });
 
   final List<NavTarget> targets;
   final int index;
   final ValueChanged<int> onSelect;
   final Profile? profile;
+  final Widget Function(NavTarget, {required bool selected}) icon;
 
   @override
   Widget build(BuildContext context) {
+    final extended = MediaQuery.sizeOf(context).width >= 1180;
     return Container(
       color: Palette.surface,
       child: SingleChildScrollView(
@@ -132,31 +151,19 @@ class _Rail extends StatelessWidget {
           ),
           child: IntrinsicHeight(
             child: NavigationRail(
-              extended: MediaQuery.sizeOf(context).width >= 1180,
-              minExtendedWidth: 208,
+              extended: extended,
+              minExtendedWidth: 216,
               selectedIndex: index,
               onDestinationSelected: onSelect,
+              labelType: extended ? NavigationRailLabelType.none : NavigationRailLabelType.all,
               leading: Padding(
-                padding: const EdgeInsets.fromLTRB(0, Insets.lg, 0, Insets.lg),
+                padding: const EdgeInsets.fromLTRB(Insets.sm, Insets.lg, Insets.sm, Insets.lg),
                 child: Column(
+                  crossAxisAlignment:
+                      extended ? CrossAxisAlignment.start : CrossAxisAlignment.center,
                   children: [
-                    Container(
-                      height: 38, width: 38,
-                      decoration: BoxDecoration(
-                        gradient: Palette.accentGradient,
-                        borderRadius: BorderRadius.circular(Corners.field),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text('ZL',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 15,
-                            letterSpacing: -0.3,
-                          )),
-                    ),
-                    if (profile != null &&
-                        MediaQuery.sizeOf(context).width >= 1180) ...[
+                    ZutLibLogo(height: 30, showName: extended),
+                    if (profile != null && extended) ...[
                       const SizedBox(height: Insets.sm),
                       Text(profile!.role.label,
                           style: Theme.of(context).textTheme.bodySmall),
@@ -167,8 +174,8 @@ class _Rail extends StatelessWidget {
               destinations: [
                 for (final t in targets)
                   NavigationRailDestination(
-                    icon: Icon(t.icon),
-                    selectedIcon: Icon(t.activeIcon),
+                    icon: icon(t, selected: false),
+                    selectedIcon: icon(t, selected: true),
                     label: Text(t.label),
                   ),
               ],

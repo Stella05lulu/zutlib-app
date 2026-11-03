@@ -1,8 +1,9 @@
 // ZutLib study-generate: AI summaries, flashcards and quizzes from a note.
 //
-// The app calls this with { "type": "summary" | "flashcards" | "quiz",
+// The app calls this with { "type": "kit" | "summary" | "flashcards" | "quiz",
 // "note_id": "<uuid>" } and the student's sign-in token. The note can be
-// typed text, a PDF the student uploaded, or a PDF from the library. The steps are in
+// typed text, a PDF the student uploaded, a PDF from the library or a
+// YouTube video. "kit" makes a whole study kit in one request. The steps are in
 // pipeline.ts; this file only connects them to the real services.
 //
 // Secrets: GEMINI_API_KEY is an Edge Function secret, set once with
@@ -54,12 +55,12 @@ Deno.serve(async (req) => {
   try {
     const outcome = await run(req.headers.get('Authorization'), body, {
       ...db,
-      generate: (kind, title, text, pdf) => {
+      generate: (kind, title, text, pdf, youtubeUrl) => {
         if (!apiKey) {
           log('config_error', { reason: 'GEMINI_API_KEY not set' })
           return Promise.reject(new Error('missing key'))
         }
-        return callGemini(apiKey, kind, title, text, pdf)
+        return callGemini(apiKey, kind, title, text, pdf, fetch, youtubeUrl)
       },
       log,
     })

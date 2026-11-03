@@ -200,7 +200,7 @@ class Tag extends StatelessWidget {
 // ------------------------------------------------------------------ notices
 
 /// A message that stays on the screen next to what it is about, instead
-/// of a pop-up that vanishes. [error] uses the accent colour.
+/// of a pop-up that vanishes. [error] uses the danger colour.
 class InlineNotice extends StatelessWidget {
   const InlineNotice(this.message, {super.key, this.error = false, this.action, this.onClose});
   final String message;
@@ -211,10 +211,10 @@ class InlineNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = StudyColors.of(context);
-    final edge = error ? c.accent : c.sky;
+    final edge = error ? c.danger : c.sky;
     return Container(
       decoration: BoxDecoration(
-        color: error ? c.accentWash : c.skyWash,
+        color: error ? c.dangerWash : c.skyWash,
         borderRadius: BorderRadius.circular(Radii.control),
         border: Border(left: BorderSide(color: edge, width: 3)),
       ),
@@ -467,7 +467,7 @@ Future<bool> confirmDelete(BuildContext context, {required String what, String? 
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep it')),
         TextButton(
-          style: TextButton.styleFrom(foregroundColor: c.accent),
+          style: TextButton.styleFrom(foregroundColor: c.danger),
           onPressed: () => Navigator.pop(ctx, true),
           child: const Text('Delete'),
         ),

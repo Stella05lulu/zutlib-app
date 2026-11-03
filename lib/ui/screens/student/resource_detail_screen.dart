@@ -16,7 +16,7 @@ import '../shared/pdf_viewer_screen.dart';
 
 /// One catalogue item. Papers open as a PDF through a link that expires
 /// after five minutes. Students can ask to borrow a physical copy, or turn
-/// a PDF into AI study material; staff see the item without those actions.
+/// a PDF into a study kit; staff see the item without those actions.
 class ResourceDetailScreen extends ConsumerStatefulWidget {
   const ResourceDetailScreen({super.key, required this.resourceId});
   final String resourceId;
@@ -61,7 +61,7 @@ class _ResourceDetailScreenState extends ConsumerState<ResourceDetailScreen> {
       );
       if (!mounted) return;
       refreshStudy(ref, noteId: note.id);
-      unawaited(context.push('/study/note/${note.id}'));
+      unawaited(context.push('/study/note/${note.id}?build=1'));
     } on Failure catch (f) {
       _show(f.message, true);
     } finally {
@@ -99,25 +99,11 @@ class _ResourceDetailScreenState extends ConsumerState<ResourceDetailScreen> {
                     if (r.courseCode.isNotEmpty) Tag(r.courseCode),
                     if (r.isRetired) const Tag('Retired'),
                   ]),
-                  const SizedBox(height: Gap.page),
-                  RowGroup(children: [
-                    if (r.author != null) _Detail('Author', r.author!),
-                    if (r.edition != null) _Detail('Edition', r.edition!),
-                    if (r.isbn != null) _Detail('ISBN', r.isbn!, mono: true),
-                    if (r.courseTitle != null) _Detail('Course', r.courseTitle!),
-                    if (r.academicYear != null) _Detail('Academic year', '${r.academicYear}', mono: true),
-                    if (r.semester != null) _Detail('Semester', '${r.semester}', mono: true),
-                    if (r.isPhysical) _Detail('Copies', r.availabilityLabel),
-                  ]),
-                  if (r.description != null && r.description!.isNotEmpty) ...[
-                    const SectionLabel('About this item'),
-                    Text(r.description!, style: t.bodyMedium),
-                  ],
                   if (_message != null) ...[
                     const SizedBox(height: Gap.page),
                     InlineNotice(_message!, error: _isError, onClose: () => setState(() => _message = null)),
                   ],
-                  const SizedBox(height: Gap.section),
+                  const SizedBox(height: Gap.page),
                   Wrap(spacing: Gap.tight, runSpacing: Gap.tight, children: [
                     if (r.hasDigitalCopy)
                       FilledButton.icon(
@@ -150,9 +136,31 @@ class _ResourceDetailScreenState extends ConsumerState<ResourceDetailScreen> {
                   ],
                   if (isStudent && r.hasPdf) ...[
                     const SizedBox(height: Gap.snug),
-                    Text('Study this with AI makes a study note from this PDF. From there you can '
-                        'summarise it, make flashcards and take a quiz.',
+                    Text('Study this with AI builds a study kit from this PDF: a study guide, '
+                        'flashcards, practice questions and timed tests.',
                         style: t.bodySmall),
+                  ],
+                  if (r.author != null ||
+                      r.edition != null ||
+                      r.isbn != null ||
+                      r.courseTitle != null ||
+                      r.academicYear != null ||
+                      r.semester != null ||
+                      r.isPhysical) ...[
+                  const SectionLabel('Details'),
+                  RowGroup(children: [
+                    if (r.author != null) _Detail('Author', r.author!),
+                    if (r.edition != null) _Detail('Edition', r.edition!),
+                    if (r.isbn != null) _Detail('ISBN', r.isbn!, mono: true),
+                    if (r.courseTitle != null) _Detail('Course', r.courseTitle!),
+                    if (r.academicYear != null) _Detail('Academic year', '${r.academicYear}', mono: true),
+                    if (r.semester != null) _Detail('Semester', '${r.semester}', mono: true),
+                    if (r.isPhysical) _Detail('Copies', r.availabilityLabel),
+                  ]),
+                  ],
+                  if (r.description != null && r.description!.isNotEmpty) ...[
+                    const SectionLabel('About this item'),
+                    Text(r.description!, style: t.bodyMedium),
                   ],
                 ],
               ),
