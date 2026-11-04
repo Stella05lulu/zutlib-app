@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
   if (actor.status !== 'active') {
     return fail('inactive', 'This account is not active. Ask an administrator.', 403)
   }
-  if (actor.role !== 'librarian' && actor.role !== 'admin') {
+  if (!['librarian', 'admin', 'super_admin'].includes(actor.role)) {
     return fail('forbidden', 'Only library staff can decide borrowing requests.', 403)
   }
 

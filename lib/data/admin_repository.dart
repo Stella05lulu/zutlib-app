@@ -66,6 +66,8 @@ class AuditEntry {
         'admin.create' => 'Created an account',
         'admin.test_invite' => 'Sent a test invite',
         'admin.resend_invite' => 'Resent an invite',
+        'admin.remove' => 'Removed an account',
+        'system.restore_super_admin' => 'Super admin restored from the dashboard',
         _ => action.replaceAll('.', ' ').replaceAll('_', ' '),
       };
 
@@ -119,7 +121,7 @@ class AdminRepository {
       final rows = await db
           .from('audit_entries')
           .select('action,target_id,detail,occurred_at,actor:profiles!audit_entries_actor_id_fkey(full_name)')
-          .like('action', 'admin.%')
+          .or('action.like.admin.%,action.like.system.%')
           .order('occurred_at', ascending: false)
           .limit(limit);
       return [for (final r in rows) AuditEntry.fromMap(r)];
@@ -178,4 +180,9 @@ class AdminRepository {
   Future<void> reactivate(String userId) => _call({'action': 'reactivate', 'user_id': userId});
   Future<void> setRole(String userId, UserRole role) =>
       _call({'action': 'set_role', 'user_id': userId, 'role': role.wire});
+
+  /// Super admin only. The account is kept (status "removed"), so it can be
+  /// restored; [reason] goes into the audit log.
+  Future<void> remove(String userId, String reason) =>
+      _call({'action': 'remove', 'user_id': userId, 'reason': reason});
 }

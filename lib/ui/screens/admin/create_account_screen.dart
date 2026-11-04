@@ -108,8 +108,13 @@ class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
                   DropdownButtonFormField<UserRole>(
                     initialValue: _role,
                     decoration: const InputDecoration(labelText: 'Role'),
+                    // Only roles below your own: an admin invites students and
+                    // librarians, a super admin also administrators. The
+                    // database refuses anything else.
                     items: [
-                      for (final r in UserRole.values) DropdownMenuItem(value: r, child: Text(r.label)),
+                      for (final r in UserRole.values)
+                        if (r.rank < (ref.watch(profileProvider).valueOrNull?.role.rank ?? 0))
+                          DropdownMenuItem(value: r, child: Text(r.label)),
                     ],
                     onChanged: (v) => setState(() => _role = v ?? _role),
                   ),

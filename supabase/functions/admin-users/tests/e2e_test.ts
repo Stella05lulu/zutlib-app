@@ -122,9 +122,17 @@ Deno.test({
       })
 
       await t.step('inviting the same address again is refused, and so is resending to someone set up', async () => {
-        assertEquals((await call(tokenM, { action: 'create', email: NEW_LIB, full_name: 'Again', role: 'admin' })).status, 409)
+        assertEquals((await call(tokenM, { action: 'create', email: NEW_LIB, full_name: 'Again', role: 'librarian' })).status, 409)
         assertEquals((await call(tokenM, { action: 'resend_invite', user_id: newLibId })).status, 409)
         assertEquals(await sql(`select role from public.profiles where id = '${newLibId}'`), 'librarian')
+      })
+
+      await t.step('an admin cannot invite an administrator, and no email goes out', async () => {
+        const before = gw.invites.length
+        const out = await call(tokenM, { action: 'create', email: 'e2e-would-be-admin@example.invalid', full_name: 'Would Be', role: 'admin' })
+        assertEquals(out.status, 403)
+        assertEquals(gw.invites.length, before)
+        assertEquals(await sql(`select count(*) from auth.users where email = 'e2e-would-be-admin@example.invalid'`), '0')
       })
 
       await t.step('a student invited by the admin is approved straight away; the invite can be resent', async () => {

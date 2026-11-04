@@ -396,7 +396,9 @@ void _printSummary({
   print('');
   print('==== ${dryRun ? 'Dry run ' : ''}summary ====');
   print('Added (${added.length}):');
-  for (final line in added) print('  - $line');
+  for (final line in added) {
+    print('  - $line');
+  }
   print('Skipped (${skipped.length}):');
   skipped.forEach((file, reason) => print('  - $file: $reason'));
   print('Failed (${failed.length}):');

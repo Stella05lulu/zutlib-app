@@ -11,11 +11,13 @@ import '../../../state/providers.dart';
 import '../../widgets/countdown_button.dart';
 import '../../widgets/study_widgets.dart';
 import '../../widgets/notification_bell.dart';
+import '../../widgets/reason_dialog.dart';
 import '../../widgets/reauth.dart';
 
 /// Every account, with the students waiting for approval first. Each
 /// change goes through the admin-users Edge Function, which checks the
-/// caller is an administrator and writes the audit log.
+/// caller's role and writes the audit log. Only actions on accounts ranked
+/// below your own are offered; the server refuses the rest anyway.
 class UsersScreen extends ConsumerStatefulWidget {
   const UsersScreen({super.key});
   @override
@@ -61,6 +63,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
   }
 
   Future<void> _openActions(Profile p) async {
+    final myRole = ref.read(profileProvider).valueOrNull?.role ?? UserRole.student;
     await showModalBottomSheet<void>(
       context: context,
       useSafeArea: true,
@@ -70,6 +73,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
       ),
       builder: (sheet) => _AccountSheet(
         profile: p,
+        myRole: myRole,
         onAction: (label, action) async {
           Navigator.pop(sheet);
           await _act(label, action);
@@ -268,8 +272,14 @@ class _PendingRow extends StatelessWidget {
 
 /// What can be done to one account, depending on its status.
 class _AccountSheet extends StatelessWidget {
-  const _AccountSheet({required this.profile, required this.onAction, required this.onMessage});
+  const _AccountSheet({
+    required this.profile,
+    required this.myRole,
+    required this.onAction,
+    required this.onMessage,
+  });
   final Profile profile;
+  final UserRole myRole;
   final Future<void> Function(String doneMessage, Future<void> Function() action) onAction;
   final void Function(String message, bool isError) onMessage;
 
@@ -278,6 +288,8 @@ class _AccountSheet extends StatelessWidget {
     final t = Theme.of(context).textTheme;
     final p = profile;
     final isMe = p.id == currentUserId;
+    final canManage = !isMe && p.role.rank < myRole.rank;
+    final isSuper = myRole == UserRole.superAdmin;
 
     Widget action(String label, String done, Future<void> Function() run, {bool primary = false}) =>
         Padding(
@@ -299,6 +311,15 @@ class _AccountSheet extends StatelessWidget {
           const SizedBox(height: Gap.page),
           if (isMe)
             Text('This is your own account. Another administrator has to change it.', style: t.bodyMedium)
+          else if (!canManage)
+            Text(
+              p.role == UserRole.superAdmin
+                  ? 'A super admin account can only be changed from the Supabase dashboard.'
+                  : 'Only a super admin can change an administrator\'s account.',
+              style: t.bodyMedium,
+            )
+          else if (p.status == AccountStatus.removed)
+            Text('This account was removed. It is kept so the audit log stays complete.', style: t.bodyMedium)
           else ...[
             if (p.status == AccountStatus.pending) ...[
               action('Approve', '${p.fullName} can now use ZutLib.', () => adminRepo.approve(p.id), primary: true),
@@ -308,19 +329,38 @@ class _AccountSheet extends StatelessWidget {
               action('Suspend', '${p.fullName} is suspended and can no longer use ZutLib.', () => adminRepo.suspend(p.id)),
             if (p.status == AccountStatus.suspended || p.status == AccountStatus.rejected)
               action('Reactivate', '${p.fullName} is active again.', () => adminRepo.reactivate(p.id), primary: true),
-            if (p.status == AccountStatus.active) ...[
+            if (isSuper && p.status == AccountStatus.active) ...[
               const SizedBox(height: Gap.tight),
               Text('Role', style: t.titleSmall),
               const SizedBox(height: Gap.tight),
               Wrap(spacing: Gap.tight, runSpacing: Gap.tight, children: [
                 for (final r in UserRole.values)
-                  if (r != p.role)
+                  if (r != p.role && r.rank < myRole.rank)
                     OutlinedButton(
                       onPressed: () => onAction('${p.fullName} is now a ${r.label.toLowerCase()}.',
                           () => adminRepo.setRole(p.id, r)),
                       child: Text('Make ${r.label.toLowerCase()}'),
                     ),
               ]),
+            ],
+            if (isSuper) ...[
+              const SizedBox(height: Gap.page),
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(foregroundColor: StudyColors.of(context).danger),
+                onPressed: () async {
+                  final reason = await askReason(
+                    context,
+                    title: 'Remove ${p.fullName}?',
+                    message: 'They will lose access straight away. The account and its history are kept, '
+                        'so it can be restored later.',
+                    confirmLabel: 'Remove',
+                    destructive: true,
+                  );
+                  if (reason == null) return;
+                  await onAction('${p.fullName} was removed.', () => adminRepo.remove(p.id, reason));
+                },
+                child: const Text('Remove account'),
+              ),
             ],
             if (p.mustSetPassword) ...[
               const SizedBox(height: Gap.page),

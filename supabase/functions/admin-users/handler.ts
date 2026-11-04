@@ -12,9 +12,17 @@
 //   test_invite    send an invite to an address to check email delivery.
 //                  The account it makes is suspended, so it can do nothing.
 //   resend_invite  send the invite again to someone who has not set up yet.
-//   approve, reject, suspend, reactivate, set_role
+//   approve, reject, suspend, reactivate, set_role, remove
 //                  change an existing account (database function
-//                  admin_apply, which also writes the audit log).
+//                  admin_apply, which also writes the audit log). An
+//                  optional reason is stored in the audit entry.
+//
+// Roles rank student < librarian < admin < super admin, and everyone acts
+// only on accounts below their own. Only a super admin may invite an
+// administrator, change a role or remove an account; nobody can make a
+// super admin here. The database enforces all of this again
+// (0017_super_admin.sql); the checks below only stop an invite email from
+// going out for a request the database would refuse.
 //
 // Database and Auth calls are passed in as `deps`, so the tests run every
 // path without a real server.
@@ -22,7 +30,7 @@
 export type Role = 'student' | 'librarian' | 'admin'
 const ROLES: Role[] = ['student', 'librarian', 'admin']
 const DEPARTMENTS = ['ICT', 'Engineering', 'Business']
-const STATUS_ACTIONS = ['approve', 'reject', 'suspend', 'reactivate', 'set_role'] as const
+const STATUS_ACTIONS = ['approve', 'reject', 'suspend', 'reactivate', 'set_role', 'remove'] as const
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 
@@ -49,6 +57,9 @@ export interface AuthUser {
 export interface Deps {
   verifyUser(token: string): Promise<string | null>
   isAdmin(userId: string): Promise<boolean>
+  isSuperAdmin(userId: string): Promise<boolean>
+  /** True when actor is an active admin or super admin ranked above target. */
+  canManage(actor: string, target: string): Promise<boolean>
   /** Sends Supabase's invite email; creates the user if they do not exist. */
   invite(email: string, data: Record<string, string>, redirectTo: string | null): Promise<AuthUser>
   getUser(userId: string): Promise<AuthUser | null>
@@ -59,7 +70,8 @@ export interface Deps {
   sendSetupLink(email: string, redirectTo: string | null): Promise<void>
   afterInvite(actor: string, user: string, role: Role, fullName: string,
               department: string | null, test: boolean): Promise<Record<string, unknown>>
-  apply(actor: string, target: string, action: string, role: Role | null): Promise<Record<string, unknown>>
+  apply(actor: string, target: string, action: string, role: Role | null,
+        reason: string | null): Promise<Record<string, unknown>>
   record(actor: string, action: string, target: string, detail: Record<string, unknown>): Promise<void>
   log(event: string, fields?: Record<string, string | number | boolean>): void
 }
@@ -143,6 +155,9 @@ export async function run(authorization: string | null, rawBody: unknown, deps: 
       }
       const department = typeof body.department === 'string' && DEPARTMENTS.includes(body.department)
         ? body.department : null
+      if (role === 'admin' && !(await deps.isSuperAdmin(actor))) {
+        return fail(403, 'forbidden', 'Only a super admin can create an administrator.')
+      }
       if (role === 'student' && !test && !department) {
         return fail(400, 'bad_department', 'Choose the student\'s department: ICT, Engineering or Business.')
       }
@@ -169,6 +184,9 @@ export async function run(authorization: string | null, rawBody: unknown, deps: 
     if (action === 'resend_invite') {
       const target = typeof body.user_id === 'string' ? body.user_id : ''
       if (!UUID.test(target)) return fail(400, 'bad_request', 'Choose an account.')
+      if (!(await deps.canManage(actor, target))) {
+        return fail(403, 'forbidden', 'You can only manage accounts below your own role.')
+      }
       const user = await deps.getUser(target)
       if (!user) return fail(404, 'not_found', 'That account no longer exists.')
       if (user.confirmed) {
@@ -197,7 +215,8 @@ export async function run(authorization: string | null, rawBody: unknown, deps: 
         role = body.role as Role
         if (!ROLES.includes(role)) return fail(400, 'bad_role', 'Choose student, librarian or admin.')
       }
-      const profile = await deps.apply(actor, target, action, role)
+      const reason = typeof body.reason === 'string' && body.reason.trim() ? body.reason.trim().slice(0, 500) : null
+      const profile = await deps.apply(actor, target, action, role, reason)
       deps.log('account_changed', { action })
       return { status: 200, body: { ok: true, profile } }
     }

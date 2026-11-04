@@ -45,21 +45,24 @@ on its own, in order:
     supabase/migrations/0013_study_pdfs.sql
     supabase/migrations/0014_study_kits.sql
     supabase/migrations/0015_planner_notifications.sql
+    supabase/migrations/0016_super_admin_enum.sql    (two lines; must run alone)
+    supabase/migrations/0017_super_admin.sql
 
-0011 must be its own run because Postgres will not use a new enum value in
-the same transaction that adds it. If 0001 to 0010 are already applied,
-start at 0011.
+0011 and 0016 must each be their own run because Postgres will not use a new
+enum value in the same transaction that adds it. If 0001 to 0010 are already
+applied, start at 0011.
 
 Before 0015, turn on **pg_cron** (Database -> Extensions -> pg_cron -> Enable).
 0015 uses it to send due-date and exam reminders every morning at 07:00.
 
-Then run the five test files the same way. Every row must say PASS:
+Then run the six test files the same way. Every row must say PASS:
 
     supabase/tests/rls_negative.sql     borrowing and catalogue rules
     supabase/tests/study_rls.sql        study notes, PDFs, AI tables
     supabase/tests/roles_rls.sql        sign-up, approval, roles, admin actions
     supabase/tests/study_kits_rls.sql   study kits, guides, progress, tests, games
     supabase/tests/planner_rls.sql      plans, profiles, notifications, feedback, reports
+    supabase/tests/super_admin_rls.sql  super admin, role ranks, removal, audit log locked
 
 The tests make their own throwaway rows and remove them at the end.
 
@@ -133,6 +136,20 @@ once:
 Every other account is then made from the app: Admin -> Users -> Create
 account sends an invite email, and the person chooses their own password.
 The administrator never sees or sets anyone's password.
+
+### 4b. Super admin (break glass)
+
+The super admin is the top role: only they can create or remove
+administrators, change roles, suspend an administrator, change system
+settings and use View as. Everyone acts only on accounts ranked below their
+own (student, librarian, admin, super admin), nobody can change their own
+role, and the last super admin cannot be demoted, suspended or removed.
+
+Sign-up and the app can never make a super admin. After 0017, make the
+first one (or restore one later) from the dashboard: paste
+`scripts/restore_super_admin.sql` into the SQL Editor, put the person's email
+on the line marked CHANGE THIS, and run it. The change is written to the
+audit log.
 
 ### 5. Sample and real library data
 

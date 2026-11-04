@@ -50,7 +50,7 @@ class AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(profileProvider).valueOrNull;
     final roleTargets = switch (profile?.role) {
-      UserRole.admin => _adminNav,
+      UserRole.admin || UserRole.superAdmin => _adminNav,
       UserRole.librarian => _staffNav,
       _ => _studentNav,
     };

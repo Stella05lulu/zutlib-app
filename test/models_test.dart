@@ -134,6 +134,30 @@ void main() {
       expect(make('a', 'admin').role.isStaff, isTrue);
       expect(make('a', 'superuser').role, UserRole.student);
     });
+
+    test('the super admin parses from and writes back to super_admin', () {
+      final p = make('a', 'super_admin');
+      expect(p.role, UserRole.superAdmin);
+      expect(p.role.wire, 'super_admin');
+      expect(p.role.label, 'Super admin');
+      expect(p.role.isAdmin, isTrue);
+      expect(p.role.isStaff, isTrue);
+      expect(UserRole.admin.wire, 'admin');
+    });
+
+    test('roles rank student < librarian < admin < super admin', () {
+      expect(UserRole.student.rank < UserRole.librarian.rank, isTrue);
+      expect(UserRole.librarian.rank < UserRole.admin.rank, isTrue);
+      expect(UserRole.admin.rank < UserRole.superAdmin.rank, isTrue);
+      expect(UserRole.librarian.isAdmin, isFalse);
+    });
+
+    test('a removed account is not active', () {
+      final p = Profile.fromMap({'id': 'p', 'full_name': 'a', 'role': 'admin', 'status': 'removed'});
+      expect(p.status, AccountStatus.removed);
+      expect(p.isActive, isFalse);
+      expect(p.status.label, 'Removed');
+    });
   });
 
   group('Search filters', () {

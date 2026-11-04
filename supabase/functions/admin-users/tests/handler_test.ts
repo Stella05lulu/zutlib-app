@@ -10,6 +10,7 @@ import { assert, assertEquals } from './assert.ts'
 const ADMIN = '00000000-0000-4000-8000-00000000ad01'
 const LIB = '00000000-0000-4000-8000-00000000ad02'
 const TARGET = '00000000-0000-4000-8000-00000000ad03'
+const SUPER = '00000000-0000-4000-8000-00000000ad04'
 
 function fake(overrides: Partial<Deps> = {}) {
   const calls: Record<string, number> = {}
@@ -19,8 +20,11 @@ function fake(overrides: Partial<Deps> = {}) {
     seen[name] = args
   }
   const base: Deps = {
-    verifyUser: (t) => Promise.resolve(t === 'admin-token' ? ADMIN : t === 'lib-token' ? LIB : null),
-    isAdmin: (id) => Promise.resolve(id === ADMIN),
+    verifyUser: (t) =>
+      Promise.resolve(t === 'admin-token' ? ADMIN : t === 'lib-token' ? LIB : t === 'super-token' ? SUPER : null),
+    isAdmin: (id) => Promise.resolve(id === ADMIN || id === SUPER),
+    isSuperAdmin: (id) => Promise.resolve(id === SUPER),
+    canManage: () => Promise.resolve(true),
     invite: (email) => Promise.resolve({ id: TARGET, email, confirmed: false }),
     getUser: () => Promise.resolve({ id: TARGET, email: 'new@zut.test', confirmed: false }),
     needsPassword: () => Promise.resolve(false),
@@ -175,14 +179,14 @@ Deno.test('approve goes through the audited database function', async () => {
   const d = fake()
   const out = await run('Bearer admin-token', { action: 'approve', user_id: TARGET }, d)
   assertEquals(out.status, 200)
-  assertEquals(d.seen.apply, [ADMIN, TARGET, 'approve', null])
+  assertEquals(d.seen.apply, [ADMIN, TARGET, 'approve', null, null])
 })
 
 Deno.test('set_role passes the role and checks it', async () => {
   const d = fake()
   assertEquals((await run('Bearer admin-token', { action: 'set_role', user_id: TARGET, role: 'god' }, d)).status, 400)
   await run('Bearer admin-token', { action: 'set_role', user_id: TARGET, role: 'admin' }, d)
-  assertEquals(d.seen.apply, [ADMIN, TARGET, 'set_role', 'admin'])
+  assertEquals(d.seen.apply, [ADMIN, TARGET, 'set_role', 'admin', null])
 })
 
 Deno.test('the database refusing (for example acting on yourself) becomes a plain 403', async () => {
@@ -195,4 +199,59 @@ Deno.test('the database refusing (for example acting on yourself) becomes a plai
 Deno.test('an unknown action: 400', async () => {
   const d = fake()
   assertEquals((await run('Bearer admin-token', { action: 'delete_everything' }, d)).status, 400)
+})
+
+// ---------------------------------------------------------------- super admin
+
+Deno.test('an admin cannot create an administrator: 403 before any invite', async () => {
+  const d = fake()
+  const out = await run('Bearer admin-token', { ...create, role: 'admin' }, d)
+  assertEquals(out.status, 403)
+  assertEquals(d.calls.invite, undefined)
+  assertEquals(d.calls.afterInvite, undefined)
+})
+
+Deno.test('a super admin creates an administrator', async () => {
+  const d = fake()
+  const out = await run('Bearer super-token', { ...create, role: 'admin' }, d)
+  assertEquals(out.status, 200)
+  const [actor, , role] = d.seen.afterInvite as [string, string, string]
+  assertEquals([actor, role], [SUPER, 'admin'])
+})
+
+Deno.test('nobody can create a super admin: 400 before any invite', async () => {
+  const d = fake()
+  const out = await run('Bearer super-token', { ...create, role: 'super_admin' }, d)
+  assertEquals(out.status, 400)
+  assertEquals(d.calls.invite, undefined)
+})
+
+Deno.test('nobody can set the super admin role: 400 before the database', async () => {
+  const d = fake()
+  const out = await run('Bearer super-token', { action: 'set_role', user_id: TARGET, role: 'super_admin' }, d)
+  assertEquals(out.status, 400)
+  assertEquals(d.calls.apply, undefined)
+})
+
+Deno.test('resend to an account at or above your rank: 403 before any email', async () => {
+  const d = fake({ canManage: () => Promise.resolve(false) })
+  const out = await run('Bearer admin-token', { action: 'resend_invite', user_id: TARGET }, d)
+  assertEquals(out.status, 403)
+  assertEquals(d.calls.invite, undefined)
+  assertEquals(d.calls.sendSetupLink, undefined)
+  assertEquals(d.calls.record, undefined)
+})
+
+Deno.test('remove passes the reason to the audited database function', async () => {
+  const d = fake()
+  const out = await run('Bearer super-token', { action: 'remove', user_id: TARGET, reason: '  Left the college  ' }, d)
+  assertEquals(out.status, 200)
+  assertEquals(d.seen.apply, [SUPER, TARGET, 'remove', null, 'Left the college'])
+})
+
+Deno.test('an admin removing someone is refused by the database: 403', async () => {
+  const d = fake({ apply: () => Promise.reject(new DbError('42501', 'Only a super admin can do that.')) })
+  const out = await run('Bearer admin-token', { action: 'remove', user_id: TARGET }, d)
+  assertEquals(out.status, 403)
+  assertEquals(out.body.message, 'Only a super admin can do that.')
 })

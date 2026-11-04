@@ -1,26 +1,39 @@
 import 'resource.dart' show kDepartments;
 
-enum UserRole { student, librarian, admin }
+/// Ranked lowest to highest. Everyone manages only accounts ranked below
+/// them; the database enforces this (0017_super_admin.sql).
+enum UserRole { student, librarian, admin, superAdmin }
 
 extension UserRoleX on UserRole {
-  String get wire => name;
+  String get wire => switch (this) {
+        UserRole.superAdmin => 'super_admin',
+        _ => name,
+      };
   String get label => switch (this) {
         UserRole.student => 'Student',
         UserRole.librarian => 'Librarian',
         UserRole.admin => 'Administrator',
+        UserRole.superAdmin => 'Super admin',
       };
   bool get isStaff => this != UserRole.student;
+
+  /// Administrator or super admin.
+  bool get isAdmin => this == UserRole.admin || this == UserRole.superAdmin;
+
+  /// 0 for a student up to 3 for a super admin.
+  int get rank => index;
 
   static UserRole parse(String? v) => switch (v) {
         'librarian' => UserRole.librarian,
         'admin' => UserRole.admin,
+        'super_admin' => UserRole.superAdmin,
         _ => UserRole.student,
       };
 }
 
 /// Where an account stands. Only an active account can use the app; the
 /// database enforces this in every policy (0012_accounts_roles_library).
-enum AccountStatus { pending, active, rejected, suspended }
+enum AccountStatus { pending, active, rejected, suspended, removed }
 
 extension AccountStatusX on AccountStatus {
   String get wire => name;
@@ -29,12 +42,14 @@ extension AccountStatusX on AccountStatus {
         AccountStatus.active => 'Active',
         AccountStatus.rejected => 'Rejected',
         AccountStatus.suspended => 'Suspended',
+        AccountStatus.removed => 'Removed',
       };
 
   static AccountStatus parse(String? v) => switch (v) {
         'active' => AccountStatus.active,
         'rejected' => AccountStatus.rejected,
         'suspended' => AccountStatus.suspended,
+        'removed' => AccountStatus.removed,
         _ => AccountStatus.pending,
       };
 }

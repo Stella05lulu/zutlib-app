@@ -113,7 +113,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (onAuthScreen) return ref.read(homeRouteProvider);
 
       // Keep people out of areas their role does not cover.
-      if (path.startsWith('/admin') && profile.role != UserRole.admin) {
+      if (path.startsWith('/admin') && !profile.role.isAdmin) {
         return ref.read(homeRouteProvider);
       }
       if (path.startsWith('/staff') && !profile.role.isStaff) {

@@ -88,6 +88,14 @@ export function restDeps(cfg: RestConfig): Omit<Deps, 'log'> {
       return (await rpc('admin_is_admin', { p_user: userId })) === true
     },
 
+    async isSuperAdmin(userId) {
+      return (await rpc('admin_is_super', { p_user: userId })) === true
+    },
+
+    async canManage(actor, target) {
+      return (await rpc('admin_can_manage', { p_actor: actor, p_target: target })) === true
+    },
+
     async invite(email, data, redirectTo) {
       const q = redirectTo ? `?redirect_to=${encodeURIComponent(redirectTo)}` : ''
       const json = await authCall(`/invite${q}`, {
@@ -130,9 +138,9 @@ export function restDeps(cfg: RestConfig): Omit<Deps, 'log'> {
       }) as Record<string, unknown>
     },
 
-    async apply(actor, target, action, role) {
+    async apply(actor, target, action, role, reason) {
       return await rpc('admin_apply', {
-        p_actor: actor, p_target: target, p_action: action, p_role: role,
+        p_actor: actor, p_target: target, p_action: action, p_role: role, p_reason: reason,
       }) as Record<string, unknown>
     },
 

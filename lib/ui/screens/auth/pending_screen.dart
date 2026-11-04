@@ -48,6 +48,10 @@ class _PendingScreenState extends ConsumerState<PendingScreen> {
           'Account not approved',
           'An administrator did not approve this account. If you think this is a mistake, contact the library.'
         ),
+      AccountStatus.removed => (
+          'Account removed',
+          'This account has been removed by an administrator. Contact the library if you think this is a mistake.'
+        ),
       AccountStatus.suspended => (
           'Account suspended',
           'This account has been suspended by an administrator. Contact the library to have it reactivated.'

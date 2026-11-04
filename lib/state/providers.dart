@@ -43,7 +43,7 @@ final profileProvider = FutureProvider<Profile?>((ref) async {
 final homeRouteProvider = Provider<String>((ref) {
   final profile = ref.watch(profileProvider).valueOrNull;
   return switch (profile?.role) {
-    UserRole.admin => '/admin',
+    UserRole.admin || UserRole.superAdmin => '/admin',
     UserRole.librarian => '/staff/requests',
     _ => '/browse',
   };

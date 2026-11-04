@@ -306,10 +306,12 @@ select pg_temp.t('F6', 'Admin suspends themselves', 'error',
 select pg_temp.t('F7', 'Admin changes their own role', 'error',
   $q$select length(public.admin_apply('00000000-0000-4000-8000-0000000006d0',
      '00000000-0000-4000-8000-0000000006d0', 'set_role', 'student')::text)$q$);
-select pg_temp.t('F8+', 'Admin makes the student a librarian', 'value=librarian',
+-- Since 0017 only a super admin changes roles (super_admin_rls.sql has the
+-- positive case), so an admin is refused and nothing is logged.
+select pg_temp.t('F8', 'Admin makes the student a librarian (super admin only since 0017)', 'error',
   $q$select public.admin_apply('00000000-0000-4000-8000-0000000006d0',
      '00000000-0000-4000-8000-0000000006b0', 'set_role', 'librarian') ->> 'role'$q$);
-select pg_temp.t('F9+', 'The role change is in the audit log', 'rows=1',
+select pg_temp.t('F9', 'The refused role change left no audit entry', 'rows=0',
   $q$select count(*) from public.audit_entries where action = 'admin.set_role'
        and target_id = '00000000-0000-4000-8000-0000000006b0'$q$);
 
