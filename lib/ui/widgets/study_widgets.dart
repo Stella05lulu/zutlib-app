@@ -46,7 +46,8 @@ class StudyTopBar extends StatelessWidget implements PreferredSizeWidget {
                 child: Text(title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium),
+                    // Screen titles in the serif section style.
+                    style: Theme.of(context).textTheme.titleLarge),
               ),
               ...actions,
             ],
@@ -70,7 +71,9 @@ class SectionLabel extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Expanded(child: Text(text, style: Theme.of(context).textTheme.titleSmall)),
+            // Section headings use the serif heading style (see the type
+            // scale in app_theme.dart).
+            Expanded(child: Text(text, style: Theme.of(context).textTheme.titleLarge)),
             if (action != null) action!,
           ],
         ),

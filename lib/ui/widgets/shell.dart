@@ -7,6 +7,7 @@ import '../../models/profile.dart';
 import '../../state/providers.dart';
 import '../../data/offline_cache.dart';
 import '../../services/reminders.dart';
+import 'app_drawer.dart';
 import 'brand.dart';
 
 class NavTarget {
@@ -17,28 +18,25 @@ class NavTarget {
 
 // Each role sees only its own areas. The router and the database enforce
 // the same split; these lists only decide which tabs are drawn.
+// Plan, Saved, My progress and Updates are in the drawer opened from Home.
 const _studentNav = [
+  NavTarget('/home', 'Home', Icons.home_outlined, Icons.home_rounded),
   NavTarget('/browse', 'Explore', Icons.explore_outlined, Icons.explore_rounded),
-  NavTarget('/borrowing', 'My borrowing', Icons.auto_stories_outlined, Icons.auto_stories_rounded),
   NavTarget('/study', 'Study', Icons.school_outlined, Icons.school_rounded),
-  NavTarget('/plan', 'Plan', Icons.event_note_outlined, Icons.event_note_rounded),
+  NavTarget('/borrowing', 'Borrowing', Icons.auto_stories_outlined, Icons.auto_stories_rounded),
   NavTarget('/profile', 'Account', Icons.account_circle_outlined, Icons.account_circle_rounded),
 ];
 
+// The catalogue and Updates are in the drawer.
 const _staffNav = [
+  NavTarget('/staff/today', 'Today', Icons.today_outlined, Icons.today_rounded),
   NavTarget('/staff/requests', 'Requests', Icons.inbox_outlined, Icons.inbox_rounded),
   NavTarget('/staff/library', 'Library', Icons.local_library_outlined, Icons.local_library_rounded),
-  NavTarget('/browse', 'Catalogue', Icons.explore_outlined, Icons.explore_rounded),
   NavTarget('/profile', 'Account', Icons.account_circle_outlined, Icons.account_circle_rounded),
 ];
 
-const _adminNav = [
-  NavTarget('/admin', 'Dashboard', Icons.space_dashboard_outlined, Icons.space_dashboard_rounded),
-  NavTarget('/admin/users', 'Users', Icons.group_outlined, Icons.group_rounded),
-  NavTarget('/staff/requests', 'Requests', Icons.inbox_outlined, Icons.inbox_rounded),
-  NavTarget('/staff/library', 'Library', Icons.local_library_outlined, Icons.local_library_rounded),
-  NavTarget('/profile', 'Account', Icons.account_circle_outlined, Icons.account_circle_rounded),
-];
+// Administrators move around with the grouped drawer (app_drawer.dart).
+
 
 /// Below the breakpoint the destinations sit in a bottom bar; above it they
 /// move to a rail with the institution's mark. Same widget, same routes.
@@ -50,7 +48,7 @@ class AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(profileProvider).valueOrNull;
     final roleTargets = switch (profile?.role) {
-      UserRole.admin || UserRole.superAdmin => _adminNav,
+      UserRole.admin || UserRole.superAdmin => const <NavTarget>[],
       UserRole.librarian => _staffNav,
       _ => _studentNav,
     };
@@ -110,8 +108,22 @@ class AppShell extends ConsumerWidget {
 
     final wide = MediaQuery.sizeOf(context).width >= kWideBreakpoint;
 
+    // Administrators: the grouped menu beside the page on a wide screen,
+    // or as a drawer from the menu button in each top bar.
+    if (targets.isEmpty) {
+      if (wide) {
+        return Scaffold(
+          key: shellScaffoldKey,
+          body: Row(children: [const AppDrawer(permanent: true), Expanded(child: page)]),
+        );
+      }
+      return Scaffold(key: shellScaffoldKey, drawer: const AppDrawer(), body: page);
+    }
+
     if (wide) {
       return Scaffold(
+        key: shellScaffoldKey,
+        drawer: const AppDrawer(),
         body: Row(
           children: [
             _Rail(
@@ -131,6 +143,8 @@ class AppShell extends ConsumerWidget {
     // A standard bottom bar with a label under every icon: nothing to
     // guess, and the page above it never hides behind it.
     return Scaffold(
+      key: shellScaffoldKey,
+      drawer: const AppDrawer(),
       body: page,
       bottomNavigationBar: DecoratedBox(
         decoration: BoxDecoration(border: Border(top: BorderSide(color: Palette.line))),

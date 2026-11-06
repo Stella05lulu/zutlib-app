@@ -5,11 +5,15 @@ import 'package:go_router/go_router.dart';
 import '../../../core/failure.dart';
 import '../../../core/theme.dart';
 import '../../../models/app_notification.dart';
+import '../../../data/governance_repository.dart' show Announcement;
+import '../../../state/governance_providers.dart';
 import '../../../state/providers.dart';
+import '../../widgets/shelves.dart' show Panel;
 import '../../widgets/common.dart';
 import '../../widgets/state_views.dart';
 
-/// Everything the bell holds, newest first: borrowing decisions, due-date
+/// Announcements from the library first, then everything the bell holds,
+/// newest first: borrowing decisions, due-date
 /// reminders, new papers for your courses, exam reminders and, for staff,
 /// new requests and sign-ups. Tapping one marks it read and opens it.
 class NotificationsScreen extends ConsumerWidget {
@@ -44,10 +48,25 @@ class NotificationsScreen extends ConsumerWidget {
     ref.watch(notificationsLiveProvider);
     final async = ref.watch(notificationsProvider);
     final unread = ref.watch(unreadCountProvider);
+    final notices = [
+      for (final a in ref.watch(announcementsProvider).valueOrNull ?? const <Announcement>[])
+        if (!a.hasEnded) a,
+    ];
+    final t = Theme.of(context).textTheme;
+    final header = <Widget>[
+      if (notices.isNotEmpty) ...[
+        Readable(child: SizedBox(width: double.infinity, child: Text('Announcements', style: t.titleLarge))),
+        const SizedBox(height: Insets.sm),
+        for (final a in notices) ...[Readable(child: _AnnouncementCard(a)), const SizedBox(height: Insets.sm)],
+        const SizedBox(height: Insets.md),
+        Readable(child: SizedBox(width: double.infinity, child: Text('Notifications', style: t.titleLarge))),
+        const SizedBox(height: Insets.sm),
+      ],
+    ];
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Notifications'),
+        title: const Text('Updates'),
         actions: [
           if (unread > 0)
             TextButton(
@@ -60,6 +79,7 @@ class NotificationsScreen extends ConsumerWidget {
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(notificationsProvider);
+          ref.invalidate(announcementsProvider);
           await ref.read(notificationsProvider.future);
         },
         child: AsyncView<List<AppNotification>>(
@@ -67,9 +87,12 @@ class NotificationsScreen extends ConsumerWidget {
           onRetry: () => ref.invalidate(notificationsProvider),
           data: (items) {
             if (items.isEmpty) {
-              return ListView(children: const [
-                SizedBox(height: 60),
-                EmptyView(
+              return ListView(
+                  padding: const EdgeInsets.fromLTRB(Insets.md, Insets.md, Insets.md, kNavClearance),
+                  children: [
+                ...header,
+                SizedBox(height: header.isEmpty ? 60 : Insets.md),
+                const EmptyView(
                   icon: Icons.notifications_none_rounded,
                   headline: 'No notifications yet',
                   body: 'Borrowing decisions, due-date reminders, new papers for your courses '
@@ -77,13 +100,15 @@ class NotificationsScreen extends ConsumerWidget {
                 ),
               ]);
             }
-            return ListView.separated(
+            return ListView(
               padding: const EdgeInsets.fromLTRB(Insets.md, Insets.md, Insets.md, kNavClearance),
-              itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(height: Insets.sm),
-              itemBuilder: (_, i) => Readable(
-                child: _NoticeCard(items[i], onTap: () => _open(context, ref, items[i])),
-              ),
+              children: [
+                ...header,
+                for (final n in items) ...[
+                  Readable(child: _NoticeCard(n, onTap: () => _open(context, ref, n))),
+                  const SizedBox(height: Insets.sm),
+                ],
+              ],
             );
           },
         ),
@@ -164,6 +189,41 @@ class _NoticeCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// An announcement from an administrator: title, message, who it is for
+/// and when it ends.
+class _AnnouncementCard extends StatelessWidget {
+  const _AnnouncementCard(this.a);
+  final Announcement a;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    return Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(Icons.campaign_outlined, size: 20, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(width: Insets.sm),
+            Expanded(child: Text(a.title, style: t.titleMedium)),
+          ]),
+          const SizedBox(height: Insets.xs),
+          Text(a.body, style: t.bodyMedium),
+          const SizedBox(height: Insets.xs),
+          Text(
+            [
+              a.department == null ? 'For everyone' : 'For ${a.department}',
+              if (a.endsOn != null) 'until ${a.endsOn!.day}/${a.endsOn!.month}/${a.endsOn!.year}',
+              if (a.isSample) 'Sample',
+            ].join('  /  '),
+            style: t.bodySmall,
+          ),
+        ],
       ),
     );
   }

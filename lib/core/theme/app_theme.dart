@@ -272,14 +272,20 @@ abstract final class StudyTheme {
       bodyColor: c.ink,
       displayColor: c.ink,
     );
+    // Type scale: display 28, title 22, section 18, body 15, caption 13.
+    // Screen titles and section headings use IBM Plex Serif (semibold),
+    // which pairs with Plex Sans for reading and Plex Mono for numbers.
+    TextStyle serif(double size, double height) =>
+        GoogleFonts.ibmPlexSerif(fontSize: size, height: height, fontWeight: FontWeight.w600, color: c.ink);
     final text = plex.copyWith(
-      headlineSmall: plex.headlineSmall?.copyWith(fontWeight: FontWeight.w600, fontSize: 24, height: 1.25),
-      titleLarge: plex.titleLarge?.copyWith(fontWeight: FontWeight.w600, fontSize: 20, height: 1.3),
+      displaySmall: serif(28, 1.2),
+      headlineSmall: serif(22, 1.25),
+      titleLarge: serif(18, 1.3),
       titleMedium: plex.titleMedium?.copyWith(fontWeight: FontWeight.w600, fontSize: 16, height: 1.35),
       titleSmall: plex.titleSmall?.copyWith(fontWeight: FontWeight.w600, fontSize: 14, color: c.inkSoft),
       bodyLarge: plex.bodyLarge?.copyWith(fontSize: 16, height: 1.55),
-      bodyMedium: plex.bodyMedium?.copyWith(fontSize: 14.5, height: 1.5, color: c.inkSoft),
-      bodySmall: plex.bodySmall?.copyWith(fontSize: 12.5, height: 1.4, color: c.inkFaint),
+      bodyMedium: plex.bodyMedium?.copyWith(fontSize: 15, height: 1.5, color: c.inkSoft),
+      bodySmall: plex.bodySmall?.copyWith(fontSize: 13, height: 1.4, color: c.inkFaint),
       labelLarge: plex.labelLarge?.copyWith(fontWeight: FontWeight.w600, fontSize: 14.5),
     );
 
@@ -307,7 +313,7 @@ abstract final class StudyTheme {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        titleTextStyle: text.titleMedium,
+        titleTextStyle: text.titleLarge,
       ),
       cardTheme: CardThemeData(
         color: c.surface,

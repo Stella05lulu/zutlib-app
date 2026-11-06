@@ -21,7 +21,7 @@ select set_config('zutlib.break_glass', 'on', true);
 
 do $$
 declare
-  target_email text := 'CHANGE_ME@example.com';   -- CHANGE THIS
+    target_email text := 'namonjestella@gmail.com';   -- CHANGE THIS
   p public.profiles;
 begin
   if lower(btrim(target_email)) = 'change_me@example.com' then

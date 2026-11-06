@@ -32,6 +32,10 @@ function fake(overrides: Partial<Deps> = {}) {
     afterInvite: (_a, user, role) => Promise.resolve({ id: user, role, status: 'active' }),
     apply: (_a, target, action) => Promise.resolve({ id: target, status: action === 'approve' ? 'active' : 'x' }),
     record: () => Promise.resolve(),
+    editProfile: (_a, t, fullName) => Promise.resolve({ id: t, full_name: fullName }),
+    superRecord: () => Promise.resolve(),
+    revokeSessions: () => Promise.resolve(2),
+    updateEmail: () => Promise.resolve(),
     log: () => {},
   }
   const merged = { ...base, ...overrides } as Deps
@@ -254,4 +258,81 @@ Deno.test('an admin removing someone is refused by the database: 403', async () 
   const out = await run('Bearer admin-token', { action: 'remove', user_id: TARGET }, d)
   assertEquals(out.status, 403)
   assertEquals(out.body.message, 'Only a super admin can do that.')
+})
+
+// ---------------------------------------------------------------- account tools
+
+Deno.test('an admin cannot use the super admin tools: 403, nothing reaches Auth or the database', async () => {
+  for (const action of ['edit_profile', 'change_email', 'password_link', 'sign_out_everywhere']) {
+    const d = fake()
+    const out = await run('Bearer admin-token', { action, user_id: TARGET, reason: 'Because', email: 'x@zut.test' }, d)
+    assertEquals(out.status, 403, action)
+    assertEquals(d.calls.updateEmail, undefined)
+    assertEquals(d.calls.sendSetupLink, undefined)
+    assertEquals(d.calls.superRecord, undefined)
+    assertEquals(d.calls.revokeSessions, undefined)
+    assertEquals(d.calls.editProfile, undefined)
+  }
+})
+
+Deno.test('a librarian cannot use the account tools: 403', async () => {
+  const d = fake()
+  const out = await run('Bearer lib-token', { action: 'password_link', user_id: TARGET, reason: 'Because' }, d)
+  assertEquals(out.status, 403)
+  assertEquals(d.calls.sendSetupLink, undefined)
+})
+
+Deno.test('every account tool needs a reason', async () => {
+  const d = fake()
+  const out = await run('Bearer super-token', { action: 'sign_out_everywhere', user_id: TARGET, reason: ' ' }, d)
+  assertEquals(out.status, 400)
+  assertEquals(out.body.error, 'reason_required')
+  assertEquals(d.calls.revokeSessions, undefined)
+})
+
+Deno.test('change email: audited first, then Auth, then a password link to the new address', async () => {
+  const order: string[] = []
+  const d = fake({
+    superRecord: () => { order.push('record'); return Promise.resolve() },
+    updateEmail: () => { order.push('auth'); return Promise.resolve() },
+    sendSetupLink: (email) => { order.push(`link:${email}`); return Promise.resolve() },
+  })
+  const out = await run('Bearer super-token',
+    { action: 'change_email', user_id: TARGET, reason: 'Typo at sign-up', email: 'Right@ZUT.test' }, d)
+  assertEquals(out.status, 200)
+  assertEquals(order, ['record', 'auth', 'link:right@zut.test'])
+})
+
+Deno.test('change email refused by the database never reaches Auth', async () => {
+  const d = fake({ superRecord: () => Promise.reject(new DbError('42501', 'You can only manage accounts below your own role.')) })
+  const out = await run('Bearer super-token',
+    { action: 'change_email', user_id: TARGET, reason: 'Typo', email: 'right@zut.test' }, d)
+  assertEquals(out.status, 403)
+  assertEquals(d.calls.updateEmail, undefined)
+  assertEquals(d.calls.sendSetupLink, undefined)
+})
+
+Deno.test('password link goes to the account address and returns no password', async () => {
+  const d = fake()
+  const out = await run('Bearer super-token', { action: 'password_link', user_id: TARGET, reason: 'Forgot it' }, d)
+  assertEquals(out.status, 200)
+  assertEquals((d.seen.sendSetupLink as unknown[])[0], 'new@zut.test')
+  assert(!JSON.stringify(out.body).toLowerCase().includes('password":'), 'no password is returned')
+})
+
+Deno.test('sign out everywhere and edit profile go through the audited database functions', async () => {
+  const d = fake()
+  assertEquals((await run('Bearer super-token', { action: 'sign_out_everywhere', user_id: TARGET, reason: 'Lost phone' }, d)).status, 200)
+  assertEquals(d.seen.revokeSessions, [SUPER, TARGET, 'Lost phone'])
+  const out = await run('Bearer super-token',
+    { action: 'edit_profile', user_id: TARGET, reason: 'Name spelling', full_name: 'Ama Banda', department: 'ICT', student_number: '' }, d)
+  assertEquals(out.status, 200)
+  assertEquals(d.seen.editProfile, [SUPER, TARGET, 'Ama Banda', 'ICT', null, 'Name spelling'])
+})
+
+Deno.test('restore goes through admin_apply with its reason', async () => {
+  const d = fake()
+  const out = await run('Bearer super-token', { action: 'restore', user_id: TARGET, reason: 'Removed by mistake' }, d)
+  assertEquals(out.status, 200)
+  assertEquals(d.seen.apply, [SUPER, TARGET, 'restore', null, 'Removed by mistake'])
 })

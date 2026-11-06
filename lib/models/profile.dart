@@ -74,6 +74,7 @@ class Profile {
     this.reminderTime = '18:00',
     this.notifyUploads = true,
     this.notifyStudy = true,
+    this.studentNumber,
   });
 
   final String id;
@@ -100,6 +101,9 @@ class Profile {
   final String reminderTime;
   final bool notifyUploads;
   final bool notifyStudy;
+
+  /// Shown and edited by a super admin only.
+  final String? studentNumber;
 
   bool get needsOnboarding => role == UserRole.student && isActive && onboardedAt == null;
 
@@ -137,6 +141,7 @@ class Profile {
         reminderTime: _hhmm(m['reminder_time'] as String?),
         notifyUploads: (m['notify_uploads'] ?? true) as bool,
         notifyStudy: (m['notify_study'] ?? true) as bool,
+        studentNumber: m['student_number'] as String?,
       );
 }
 

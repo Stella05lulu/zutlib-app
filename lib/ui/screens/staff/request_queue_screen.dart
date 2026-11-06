@@ -6,6 +6,7 @@ import '../../../core/theme.dart';
 import '../../../core/theme/app_theme.dart' show Mono;
 import '../../../models/borrow_request.dart';
 import '../../../state/providers.dart';
+import '../../widgets/app_drawer.dart';
 import '../../widgets/common.dart';
 import '../../widgets/state_views.dart';
 import '../../widgets/notification_bell.dart';
@@ -28,6 +29,7 @@ class RequestQueueScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        leading: shellHasDrawer ? const ShellMenuButton() : null,
         title: const Text('Borrowing requests'),
         actions: [
           IconButton(

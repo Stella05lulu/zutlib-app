@@ -7,6 +7,7 @@ import '../../../core/theme.dart' show kNavClearance;
 import '../../../core/theme/app_theme.dart';
 import '../../../models/resource.dart';
 import '../../../state/providers.dart';
+import '../../widgets/app_drawer.dart';
 import '../../widgets/study_widgets.dart';
 import '../../widgets/notification_bell.dart';
 
@@ -146,6 +147,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               children: [
                 const SizedBox(height: Gap.tight),
                 Row(children: [
+                  const ShellMenuButton(),
                   Expanded(child: Text('Library', style: t.headlineSmall)),
                   const NotificationBell(),
                 ]),

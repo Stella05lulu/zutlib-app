@@ -47,6 +47,10 @@ on its own, in order:
     supabase/migrations/0015_planner_notifications.sql
     supabase/migrations/0016_super_admin_enum.sql    (two lines; must run alone)
     supabase/migrations/0017_super_admin.sql
+    supabase/migrations/0018_account_tools_settings.sql
+    supabase/migrations/0019_announcements_saved.sql
+    supabase/migrations/0020_kit_sources.sql
+    supabase/migrations/0021_dashboards_view_as.sql
 
 0011 and 0016 must each be their own run because Postgres will not use a new
 enum value in the same transaction that adds it. If 0001 to 0010 are already
@@ -55,7 +59,7 @@ applied, start at 0011.
 Before 0015, turn on **pg_cron** (Database -> Extensions -> pg_cron -> Enable).
 0015 uses it to send due-date and exam reminders every morning at 07:00.
 
-Then run the six test files the same way. Every row must say PASS:
+Then run the seven test files the same way. Every row must say PASS:
 
     supabase/tests/rls_negative.sql     borrowing and catalogue rules
     supabase/tests/study_rls.sql        study notes, PDFs, AI tables
@@ -63,6 +67,8 @@ Then run the six test files the same way. Every row must say PASS:
     supabase/tests/study_kits_rls.sql   study kits, guides, progress, tests, games
     supabase/tests/planner_rls.sql      plans, profiles, notifications, feedback, reports
     supabase/tests/super_admin_rls.sql  super admin, role ranks, removal, audit log locked
+    supabase/tests/plan_items_rls.sql   account tools, settings, announcements, saved,
+                                        kit sources, dashboards, View as
 
 The tests make their own throwaway rows and remove them at the end.
 
@@ -173,6 +179,24 @@ papers).
 
 The older `scripts/seed_resources.dart` still loads the files listed in
 `scripts/seed/resources_manifest.csv`.
+
+For the demo, `scripts/seed_study_demo.sql` and then
+`scripts/seed_demo_extras.sql` (SQL Editor, after the super admin exists)
+fill every new screen for every role: announcements, saved items, a kit
+with several sources, six weeks of quiz attempts for My progress, an overdue
+loan, a request waiting for a librarian, and audit entries. Everything is
+labelled "Sample" and goes through the same tables and audited functions
+the app uses. Both can be run again to reset.
+
+### Running every test locally
+
+Without touching the live project: Postgres 15 or newer, PostgREST 12 and
+Deno 2 on the PATH, then
+
+    PGHOST=/tmp PGPORT=54322 PGUSER=postgres bash supabase/tests/local/run_local.sh
+
+builds a throwaway database from every migration, runs the seven SQL
+security files, the last-copy race test and every Edge Function test.
 
 ### 6. App
 

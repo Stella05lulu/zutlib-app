@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/failure.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../data/governance_repository.dart' show GovernanceRepository, governanceRepo;
 import '../../../data/resource_repository.dart';
 import '../../../models/resource.dart';
 import '../../../models/study.dart';
@@ -17,7 +18,7 @@ import '../../widgets/study_widgets.dart';
 import 'kit_widgets.dart';
 
 /// "Provide your materials": the start of a new study kit. A kit is built
-/// on one PDF the student uploads, one YouTube video, pasted or typed
+/// on up to five PDFs the student uploads, one YouTube video, pasted or typed
 /// text, or a PDF already in the library. "Proceed without materials"
 /// makes an empty kit the student fills by hand.
 ///
@@ -50,8 +51,9 @@ class _NewKitSheetState extends ConsumerState<_NewKitSheet> {
   final _title = TextEditingController();
   final _link = TextEditingController();
   final _text = TextEditingController();
-  Uint8List? _pdfBytes;
-  String? _pdfName;
+  /// The PDFs chosen so far: the first becomes the kit's main source, the
+  /// rest are added as extra sources (at most five, 30 MB together).
+  final List<({String name, Uint8List bytes})> _pdfs = [];
   Resource? _resource;
   bool _busy = false;
   String? _error;
@@ -67,7 +69,7 @@ class _NewKitSheetState extends ConsumerState<_NewKitSheet> {
   KitColor get _nextColor => KitColorX.forIndex(ref.read(notesProvider).valueOrNull?.length ?? 0);
 
   bool get _ready => switch (_source) {
-        _Source.upload => _pdfBytes != null,
+        _Source.upload => _pdfs.isNotEmpty,
         _Source.youtube => normaliseYoutubeUrl(_link.text) != null,
         _Source.paste => _text.text.trim().isNotEmpty,
         _Source.library => _resource != null,
@@ -79,22 +81,39 @@ class _NewKitSheetState extends ConsumerState<_NewKitSheet> {
     return v.length > StudyLimits.noteTitle ? v.substring(0, StudyLimits.noteTitle) : v;
   }
 
+  int get _pdfTotal => _pdfs.fold<int>(0, (s, p) => s + p.bytes.length);
+
   Future<void> _pickPdf() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf'],
       withData: true,
+      allowMultiple: true,
     );
-    final file = result?.files.firstOrNull;
-    if (file == null || file.bytes == null) return;
-    if (file.bytes!.length > StudyLimits.pdfBytes) {
-      setState(() => _error = 'That PDF is larger than 10 MB. Choose a smaller file, for example one chapter.');
-      return;
+    if (result == null) return;
+    String? problem;
+    final added = <({String name, Uint8List bytes})>[];
+    for (final file in result.files) {
+      final bytes = file.bytes;
+      if (bytes == null) continue;
+      if (_pdfs.length + added.length >= GovernanceRepository.kitMaxSources) {
+        problem = 'A kit can have at most ${GovernanceRepository.kitMaxSources} sources, so some files were left out.';
+        break;
+      }
+      if (bytes.length > StudyLimits.pdfBytes) {
+        problem = '${file.name} is larger than 10 MB. Choose a smaller file, for example one chapter.';
+        continue;
+      }
+      final total = _pdfTotal + added.fold<int>(0, (s, p) => s + p.bytes.length) + bytes.length;
+      if (total > GovernanceRepository.kitMaxBytes) {
+        problem = 'A kit can hold at most 30 MB of PDFs, so ${file.name} was left out.';
+        continue;
+      }
+      added.add((name: file.name, bytes: bytes));
     }
     setState(() {
-      _pdfBytes = file.bytes;
-      _pdfName = file.name;
-      _error = null;
+      _pdfs.addAll(added);
+      _error = problem;
     });
   }
 
@@ -111,14 +130,19 @@ class _NewKitSheetState extends ConsumerState<_NewKitSheet> {
       } else {
         switch (_source) {
           case _Source.upload:
-            final name = _pdfName ?? 'My PDF';
+            final first = _pdfs.first;
+            final name = first.name;
             final stem = name.toLowerCase().endsWith('.pdf') ? name.substring(0, name.length - 4) : name;
             note = await studyRepo.createPdfNote(
               title: _titleOr(stem.trim().isEmpty ? 'My PDF' : stem),
-              bytes: _pdfBytes!,
+              bytes: first.bytes,
               fileName: name,
               color: color,
             );
+            // The others become extra sources, so one build reads them all.
+            for (final more in _pdfs.skip(1)) {
+              await governanceRepo.addUploadSource(note.id, bytes: more.bytes, fileName: more.name);
+            }
           case _Source.youtube:
             note = await studyRepo.createVideoKit(
               title: _titleOr('YouTube lecture'),
@@ -214,9 +238,32 @@ class _NewKitSheetState extends ConsumerState<_NewKitSheet> {
                   ),
                   const SizedBox(height: Gap.page),
                   switch (_source) {
-                    _Source.upload => _UploadBox(
-                        fileName: _pdfName,
-                        onTap: _busy ? null : _pickPdf,
+                    _Source.upload => Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (_pdfs.length < GovernanceRepository.kitMaxSources)
+                            _UploadBox(
+                              chosen: _pdfs.length,
+                              onTap: _busy ? null : _pickPdf,
+                            ),
+                          for (var i = 0; i < _pdfs.length; i++) ...[
+                            const SizedBox(height: Gap.tight),
+                            _ChosenPdf(
+                              name: _pdfs[i].name,
+                              bytes: _pdfs[i].bytes.length,
+                              main: i == 0,
+                              onRemove: _busy ? null : () => setState(() => _pdfs.removeAt(i)),
+                            ),
+                          ],
+                          if (_pdfs.isNotEmpty) ...[
+                            const SizedBox(height: Gap.tight),
+                            Text(
+                              '${_pdfs.length} of ${GovernanceRepository.kitMaxSources} sources  /  '
+                              '${(_pdfTotal / (1024 * 1024)).toStringAsFixed(1)} of 30 MB',
+                              style: t.bodySmall,
+                            ),
+                          ],
+                        ],
                       ),
                     _Source.youtube => Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -309,42 +356,84 @@ class _NewKitSheetState extends ConsumerState<_NewKitSheet> {
   }
 }
 
-/// The place to tap to choose a PDF.
+/// The place to tap to choose PDFs (several at once).
 class _UploadBox extends StatelessWidget {
-  const _UploadBox({required this.fileName, required this.onTap});
-  final String? fileName;
+  const _UploadBox({required this.chosen, required this.onTap});
+  final int chosen;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final c = StudyColors.of(context);
     final t = Theme.of(context).textTheme;
-    final chosen = fileName != null;
+    final some = chosen > 0;
     return Material(
-      color: chosen ? c.accentWash : c.sunken,
+      color: c.sunken,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(Radii.panel),
-        side: BorderSide(color: chosen ? c.accent : c.lineStrong, width: 1.5),
+        side: BorderSide(color: c.lineStrong, width: 1.5),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Gap.page, vertical: Gap.section),
+          padding: EdgeInsets.symmetric(horizontal: Gap.page, vertical: some ? Gap.page : Gap.section),
           child: Column(
             children: [
-              Icon(chosen ? Icons.picture_as_pdf_outlined : Icons.cloud_upload_outlined,
-                  size: 40, color: chosen ? c.accent : c.inkSoft),
+              Icon(some ? Icons.add : Icons.cloud_upload_outlined, size: some ? 28 : 40, color: c.inkSoft),
               const SizedBox(height: Gap.tight),
-              Text(chosen ? fileName! : 'Click to add a PDF',
-                  style: t.titleMedium, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
+              Text(some ? 'Add another PDF' : 'Click to add PDFs',
+                  style: t.titleMedium, textAlign: TextAlign.center),
               const SizedBox(height: Gap.hair),
-              Text(chosen ? 'Tap to choose a different file' : 'Lecture notes, handouts or a past paper, up to 10 MB',
-                  style: t.bodySmall, textAlign: TextAlign.center),
+              Text(
+                some
+                    ? 'Up to ${GovernanceRepository.kitMaxSources} files, 30 MB in total'
+                    : 'Lecture notes, handouts or past papers. Choose several at once, up to 10 MB each',
+                style: t.bodySmall,
+                textAlign: TextAlign.center,
+              ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// One chosen PDF, with its size and a remove button.
+class _ChosenPdf extends StatelessWidget {
+  const _ChosenPdf({required this.name, required this.bytes, required this.main, required this.onRemove});
+  final String name;
+  final int bytes;
+  final bool main;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = StudyColors.of(context);
+    final t = Theme.of(context).textTheme;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(Gap.snug, Gap.tight, Gap.hair, Gap.tight),
+      decoration: BoxDecoration(
+        color: c.accentWash,
+        borderRadius: BorderRadius.circular(Radii.panel),
+        border: Border.all(color: c.accent),
+      ),
+      child: Row(children: [
+        Icon(Icons.picture_as_pdf_outlined, color: c.accent),
+        const SizedBox(width: Gap.snug),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: t.titleSmall?.copyWith(color: c.ink)),
+            Text('${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB${main ? '  /  main source' : ''}', style: t.bodySmall),
+          ]),
+        ),
+        IconButton(
+          tooltip: 'Remove $name',
+          onPressed: onRemove,
+          icon: const Icon(Icons.close, size: 20),
+        ),
+      ]),
     );
   }
 }

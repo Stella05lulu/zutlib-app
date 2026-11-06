@@ -2,10 +2,10 @@
 
 ## 1. Setup
 
-The full project setup (migrations 0001 to 0014, the four security test files, edge functions, Authentication settings, email templates, the first administrator and the sample data) is in the main `README.md` under Setup. The study assistant needs, in addition:
+The full project setup (migrations 0001 to 0021, the seven security test files, edge functions, Authentication settings, email templates, the first administrator and the sample data) is in the main `README.md` under Setup. The study assistant needs, in addition:
 
 1. **Gemini key** (free from aistudio.google.com, no payment method): `supabase secrets set GEMINI_API_KEY=paste-your-key-here`, then `supabase functions deploy study-generate`.
-2. **Demo students with study material.** Authentication -> Users -> Add user, twice: `sample.student.a@zutlib.test` and `sample.student.b@zutlib.test`, each with a password you choose and "Auto Confirm User" ticked. Then run `scripts/seed_study_demo.sql` in the SQL Editor. It approves both accounts and gives them sample notes, a deck and a quiz. Run it again before each demo to reset them.
+2. **Demo students with study material.** Authentication -> Users -> Add user, twice: `sample.student.a@zutlib.test` and `sample.student.b@zutlib.test`, each with a password you choose and "Auto Confirm User" ticked. Then run `scripts/seed_study_demo.sql` in the SQL Editor. It approves both accounts and gives them sample notes, a deck and a quiz. Then run `scripts/seed_demo_extras.sql`: sample announcements, saved items, a kit with several sources, six weeks of quiz attempts (for My progress), an overdue loan, a request waiting for a librarian, and real audit entries. Run both again before each demo to reset them.
 
 Sample data is for demonstration only. Every sample book and paper shows a "Sample" label in the app, and every sample PDF opens with "SAMPLE PAPER. NOT AN OFFICIAL ZUT EXAMINATION." Remove all of it with `python scripts/sample_data.py remove`.
 
@@ -13,37 +13,43 @@ Sample data is for demonstration only. Every sample book and paper shows a "Samp
 
 Do these the day before, then tick them again an hour before.
 
-- [ ] All 14 migrations applied; `rls_negative.sql`, `study_rls.sql`, `roles_rls.sql` and `study_kits_rls.sql` all PASS.
+- [ ] All 21 migrations applied; all seven test files in `supabase/tests/` PASS (`rls_negative`, `study_rls`, `roles_rls`, `study_kits_rls`, `planner_rls`, `super_admin_rls`, `plan_items_rls`).
+- [ ] `scripts/restore_super_admin.sql` run with your email: you are the super admin.
 - [ ] One study kit already built with AI from your lecture-notes PDF (so the demo does not wait on Gemini), and one public YouTube lecture link copied.
 - [ ] `admin-users`, `decide-request` and `study-generate` deployed; `register` deleted; `GEMINI_API_KEY` set.
 - [ ] Authentication: Confirm email ON, sign-ups ON, minimum password 8, Site URL is the web app address, redirect URLs added, all three email templates pasted (invite, confirm signup, reset password). SMTP settings untouched.
-- [ ] You can sign in as your administrator (made with `scripts/bootstrap_accounts.sql`).
+- [ ] You can sign in as your super admin, and as a second administrator invited from the app.
 - [ ] Admin -> Create account -> **Send test invite** to your own second inbox shows "sent", and the email arrives with the ZutLib wording.
 - [ ] A librarian account invited from the app, invite accepted, password chosen, signed in once.
 - [ ] One student signed up from the app with a real inbox, email confirmed, left **waiting** (not approved) to approve live.
 - [ ] `python scripts/sample_data.py seed` run; Browse shows sample books (some with 0 available) and papers from 2019 to 2025.
-- [ ] `scripts/seed_study_demo.sql` run.
+- [ ] `scripts/seed_study_demo.sql`, then `scripts/seed_demo_extras.sql` run.
 - [ ] One short PDF of your own lecture notes saved on the demo device.
 - [ ] Backup accounts in case email is slow: a second approved student and a second librarian, made the same way and listed in `scripts/bootstrap_accounts.sql`.
 - [ ] Sample student A signed in in a spare browser profile, as a fallback if Gemini is busy.
 - [ ] Web app running at the Site URL (`flutter run -d chrome --web-port 5000`), each account in its own browser profile so switching takes one click.
 
-## 2. Demo script (under 3 minutes)
+## 2. Demo script (about 4 minutes)
 
 | Time | Do | Say |
 |---|---|---|
-| 0:00 | Show the sign-up screen: full name, department, email, password. | "Anyone can sign up, but only as a student, and only after confirming their email." |
+| 0:00 | Show the sign-up screen: full name, department, email, password. | "Anyone can sign up, but only as a student, only after confirming their email, and only while the super admin keeps sign-up open." |
 | 0:10 | Sign in as the waiting student. The waiting screen appears. | "Until an administrator approves them they see only this. The database refuses them everything else, not just the app." |
-| 0:25 | Administrator window: **Dashboard**, then **Review waiting students**, **Approve**. | "Staff accounts are never self-made. Every approval, rejection and suspension is in the audit log." |
-| 0:40 | **Create account**, role Librarian. Point at the text under the form. | "The new librarian gets an invite email and picks their own password. I never see it." |
-| 0:55 | Librarian window: **Library**, **Add a book** with 2 copies; then **Import books from CSV** and show the per-row report. | "The database will not allow more copies on loan than exist." |
-| 1:15 | Student window (now approved): search "ICT 2010", filter by year. Open a paper with the **Sample** label. | "Full-text search with filters. The PDF opens through a link that expires in five minutes." |
-| 1:30 | Open a book with copies left, **Ask to borrow a copy**. Librarian approves it. | "The request carries the student's name, department and email from their verified profile, not from what the app sends." |
-| 1:50 | Back on the paper, tap **Study this with AI**. The kit opens and builds: one request makes the guide, flashcards and questions. | "Gemini reads the PDF on the server. The key never leaves Supabase, and the student has 10 requests a day." |
-| 2:05 | Open the kit you built yesterday. **Study guide**, then **Smart study**: answer one, rate it. | "Smart study keeps asking what you get wrong until you master it. The level bar is saved in the database." |
-| 2:20 | **Flashcards**, **Deck**: flip a card, **Got it**. Then **Games**, **Matching**. | "Spaced boxes, plus two games with a scoreboard." |
-| 2:35 | **Test**: 5 questions, Hard, 5 minutes, **Create test**, answer two, **Hand in**. | "The database marks the test, so a score cannot be faked." |
-| 2:50 | Optional: show `roles_rls.sql` results, all PASS. | "Every rule I described is tested." |
+| 0:20 | Super admin window: **Overview**. Point at the stat row, the activity chart and the event breakdown. **Approve** the waiting student from Pending approvals. | "Every number is a live query. The audit log has a week of activity, and every approval lands in it." |
+| 0:40 | Open the menu: Workspace, Library, Governance. Open **Users**, a librarian, and show the tools: edit details, send a reset link, sign out everywhere. Each asks for a reason. | "I never see a password. Each tool needs a reason, and the reason goes in the audit log." |
+| 1:00 | **Audit log**: open the newest entry. | "Nobody can edit or delete these, not from the app and not from the server functions." |
+| 1:10 | **Settings**: loan period and maximum borrows. | "The database reads these. A student over the limit is refused by the database, not by a hidden button." |
+| 1:20 | On a student, **View as**. Point at the banner. **Exit**. | "Read only. The server checks I am the super admin and logs the start and end. It never shows their private study kits." |
+| 1:35 | Admin window (not super admin): open the super admin's account. | "An admin manages only accounts below them. Only the dashboard can make a super admin." |
+| 1:45 | Librarian window: **Today**. Waiting requests, collections due, overdue, no copies left. Approve the waiting request. | "The librarian starts the day with what needs doing." |
+| 2:00 | Student window (sample student A): **Home**. Greeting, books on loan with the next due date, streak, latest announcement, Continue studying, For your courses. | "Home is built from their own data. Sections with nothing in them are hidden." |
+| 2:20 | Open a paper with the **Sample** label, tap the bookmark, then **Saved**. | "Saved items are private to the student, by row level security." |
+| 2:30 | Open the kit with several sources, **Materials**: a formula sheet and a library paper. Add a YouTube link. | "One build reads every source in a single request, so it costs one of the ten daily requests." |
+| 2:50 | **Study guide**, then **Smart study**: answer one, rate it. | "Smart study keeps asking what you get wrong until you master it." |
+| 3:05 | **Test**: 5 questions, **Create test**, answer two, **Hand in**. | "The database marks the test, so a score cannot be faked." |
+| 3:20 | **My progress**: the score chart and Revise next. | "Rules, not AI: wrong in three of the last four tries means revise it next, and it says so." |
+| 3:35 | **Plan** from the Home drawer: the exam countdown and today's tasks. | "The plan adapts to what they actually did." |
+| 3:50 | Optional: show `super_admin_rls.sql` results, all PASS. | "Every rule I described is tested, including what each role is refused." |
 
 If Gemini is slow or busy at 1:50, say so (the app shows the reason in plain words), switch to the browser profile signed in as sample student A, and carry on with the kit you built the day before.
 
@@ -64,7 +70,7 @@ If Gemini is slow or busy at 1:50, say so (the app shows the reason in plain wor
 ## 4. Known limitations
 
 - **YouTube videos.** Gemini's YouTube reading is a preview feature: public videos only (not private or unlisted), free, up to 8 hours of video a day per project. If Google refuses a video the student is told to try a public one or upload the notes as a PDF.
-- **One source per kit.** A kit holds one PDF, one video or one library item, plus typed notes. Several PDFs need several kits.
+- **Five sources per kit.** A kit holds up to five sources (uploaded PDFs, library PDFs, YouTube links, typed text), with at most 30 MB of PDFs in total.
 - **Building again replaces.** "Build again" makes a new guide, deck and question bank and removes the old ones, with their progress.
 - **PDF download.** The study guide downloads as a PDF using the IBM Plex font fetched from Google Fonts; offline it falls back to the built-in font.
 

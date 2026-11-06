@@ -39,3 +39,8 @@ export const GEMINI_TIMEOUT_MS = 100000
 // is base64-encoded in memory here. Uploads are held to the same size by
 // the study-files bucket limit in 0013_study_pdfs.sql.
 export const MAX_PDF_BYTES = 10 * 1024 * 1024
+
+// All the PDFs of one kit are sent to Gemini in a single request, whose
+// inline data must stay under about 20 MB. A kit may hold 30 MB of PDFs
+// (0020_kit_sources.sql), so AI help reads at most this much at once.
+export const MAX_TOTAL_PDF_BYTES = 18 * 1024 * 1024

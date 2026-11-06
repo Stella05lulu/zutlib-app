@@ -120,6 +120,8 @@ class _PlanBody extends StatelessWidget {
     final t = Theme.of(context).textTheme;
     final today = [for (final v in views) if (v.today != null) for (final task in v.today!.tasks) (v, task)];
     final done = today.where((x) => x.$1.done(x.$2)).length;
+    final fresh = [for (final x in today) if (!x.$2.isCatchUp) x];
+    final missed = [for (final x in today) if (x.$2.isCatchUp) x];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -130,8 +132,26 @@ class _PlanBody extends StatelessWidget {
         ),
         if (today.isEmpty)
           const StudyEmptyState('Nothing planned for today. Enjoy the rest day.', compact: true)
-        else
-          RowGroup(children: [for (final (v, task) in today) PlanTaskRow(view: v, task: task, showKit: true)]),
+        else ...[
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: done / today.length,
+              minHeight: 6,
+              backgroundColor: c.sunken,
+              color: c.accent,
+            ),
+          ),
+          const SizedBox(height: Gap.snug),
+          // Today's own work first; anything missed earlier is folded into
+          // one group so the list stays short.
+          if (fresh.isNotEmpty)
+            RowGroup(children: [for (final (v, task) in fresh) PlanTaskRow(view: v, task: task, showKit: true)]),
+          if (missed.isNotEmpty) ...[
+            if (fresh.isNotEmpty) const SizedBox(height: Gap.snug),
+            _CatchUp(items: missed, startOpen: fresh.isEmpty),
+          ],
+        ],
         const SectionLabel('This week'),
         _WeekStrip(views: views),
         SectionLabel('Upcoming exams',
@@ -148,6 +168,77 @@ class _PlanBody extends StatelessWidget {
             'take tests and mark guide sections read.',
             style: t.bodySmall?.copyWith(color: c.inkFaint)),
       ],
+    );
+  }
+}
+
+/// Missed work, folded: one row saying how much there is, which opens to
+/// the tasks themselves.
+class _CatchUp extends StatefulWidget {
+  const _CatchUp({required this.items, required this.startOpen});
+  final List<(PlanView, PlanTask)> items;
+  final bool startOpen;
+
+  @override
+  State<_CatchUp> createState() => _CatchUpState();
+}
+
+class _CatchUpState extends State<_CatchUp> {
+  late bool _open = widget.startOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = StudyColors.of(context);
+    final t = Theme.of(context).textTheme;
+    final left = widget.items.where((x) => !x.$1.done(x.$2)).length;
+    final minutes = widget.items.fold<int>(0, (m, x) => m + x.$2.minutes);
+    return Container(
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: BorderRadius.circular(Radii.panel),
+        border: Border.all(color: c.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Semantics(
+            button: true,
+            expanded: _open,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(Radii.panel),
+              onTap: () => setState(() => _open = !_open),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Gap.page - 4, vertical: Gap.snug),
+                child: Row(children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(color: c.warnWash, borderRadius: BorderRadius.circular(9)),
+                    child: Icon(Icons.history, size: 18, color: c.warn),
+                  ),
+                  const SizedBox(width: Gap.snug),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('Catch up from earlier days', style: t.titleSmall?.copyWith(color: c.ink)),
+                      Text(
+                        left == 0
+                            ? 'All caught up'
+                            : '$left of ${widget.items.length} left  /  about $minutes min',
+                        style: t.bodySmall,
+                      ),
+                    ]),
+                  ),
+                  Icon(_open ? Icons.expand_less : Icons.expand_more, color: c.inkSoft),
+                ]),
+              ),
+            ),
+          ),
+          if (_open) ...[
+            Divider(height: 1, color: c.line),
+            for (final (v, task) in widget.items) PlanTaskRow(view: v, task: task, showKit: true),
+          ],
+        ],
+      ),
     );
   }
 }

@@ -104,7 +104,7 @@ Deno.test({
     const deps: Deps = {
       ...restDeps({ url: gateway.url, anonKey: 'anon', serviceKey: service }),
       generate: (_k, _t, _b, pdf, video) => {
-        geminiCalls++; lastPdf = pdf; lastVideo = video; return Promise.resolve(nextAnswer)
+        geminiCalls++; lastPdf = pdf[0] ?? null; lastVideo = video[0] ?? null; return Promise.resolve(nextAnswer)
       },
       log: () => {},
     }

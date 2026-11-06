@@ -17,6 +17,15 @@
 //                  admin_apply, which also writes the audit log). An
 //                  optional reason is stored in the audit entry.
 //
+// Super admin account tools (reason required, audited by the database):
+//   edit_profile         name, department and student number
+//   change_email         Auth changes the address, then a password link
+//                        goes to the new one
+//   password_link        a link to choose a new password; nobody else ever
+//                        sees or sets a password
+//   sign_out_everywhere  ends every sign-in session
+//   restore              a removed account becomes active again
+//
 // Roles rank student < librarian < admin < super admin, and everyone acts
 // only on accounts below their own. Only a super admin may invite an
 // administrator, change a role or remove an account; nobody can make a
@@ -30,7 +39,8 @@
 export type Role = 'student' | 'librarian' | 'admin'
 const ROLES: Role[] = ['student', 'librarian', 'admin']
 const DEPARTMENTS = ['ICT', 'Engineering', 'Business']
-const STATUS_ACTIONS = ['approve', 'reject', 'suspend', 'reactivate', 'set_role', 'remove'] as const
+const STATUS_ACTIONS = ['approve', 'reject', 'suspend', 'reactivate', 'set_role', 'remove', 'restore'] as const
+const SUPER_TOOLS = ['edit_profile', 'change_email', 'password_link', 'sign_out_everywhere'] as const
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 
@@ -73,6 +83,14 @@ export interface Deps {
   apply(actor: string, target: string, action: string, role: Role | null,
         reason: string | null): Promise<Record<string, unknown>>
   record(actor: string, action: string, target: string, detail: Record<string, unknown>): Promise<void>
+  editProfile(actor: string, target: string, fullName: string, department: string | null,
+              studentNumber: string | null, reason: string): Promise<Record<string, unknown>>
+  /** Audits a super admin tool whose work happens in Auth; throws DbError if refused. */
+  superRecord(actor: string, target: string, action: string, reason: string,
+              detail: Record<string, unknown>): Promise<void>
+  revokeSessions(actor: string, target: string, reason: string): Promise<number>
+  /** Changes a user's address in Auth, already confirmed. */
+  updateEmail(userId: string, email: string): Promise<void>
   log(event: string, fields?: Record<string, string | number | boolean>): void
 }
 
@@ -204,6 +222,57 @@ export async function run(authorization: string | null, rawBody: unknown, deps: 
       await deps.record(actor, 'resend_invite', target, { email: user.email })
       deps.log('invite_resent', {})
       return { status: 200, body: { ok: true, message: `Invite sent again to ${user.email}.` } }
+    }
+
+    // ------------------------------------------------ super admin tools
+    if ((SUPER_TOOLS as readonly string[]).includes(action)) {
+      if (!(await deps.isSuperAdmin(actor))) {
+        return fail(403, 'forbidden', 'Only a super admin can do that.')
+      }
+      const target = typeof body.user_id === 'string' ? body.user_id : ''
+      if (!UUID.test(target)) return fail(400, 'bad_request', 'Choose an account.')
+      const reason = typeof body.reason === 'string' ? body.reason.trim().slice(0, 500) : ''
+      if (reason.length < 3) return fail(400, 'reason_required', 'Give a reason. It is kept in the audit log.')
+
+      if (action === 'edit_profile') {
+        const fullName = typeof body.full_name === 'string' ? body.full_name : ''
+        const department = typeof body.department === 'string' && body.department ? body.department : null
+        const number = typeof body.student_number === 'string' && body.student_number.trim()
+          ? body.student_number : null
+        const profile = await deps.editProfile(actor, target, fullName, department, number, reason)
+        deps.log('profile_edited', {})
+        return { status: 200, body: { ok: true, profile, message: 'The account details were saved.' } }
+      }
+
+      if (action === 'sign_out_everywhere') {
+        const n = await deps.revokeSessions(actor, target, reason)
+        deps.log('sessions_revoked', { sessions: n })
+        return {
+          status: 200,
+          body: { ok: true, sessions: n, message: 'Signed out everywhere. Each device must sign in again within the hour.' },
+        }
+      }
+
+      const user = await deps.getUser(target)
+      if (!user) return fail(404, 'not_found', 'That account no longer exists.')
+
+      if (action === 'change_email') {
+        const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
+        if (!EMAIL.test(email) || email.length > 200) return fail(400, 'bad_email', 'That email address is not valid.')
+        if (email === user.email.toLowerCase()) return fail(409, 'not_allowed', 'That is already their email address.')
+        // Audited (and checked) first, so a refused request never reaches Auth.
+        await deps.superRecord(actor, target, 'change_email', reason, { from: user.email, to: email })
+        await deps.updateEmail(target, email)
+        await deps.sendSetupLink(email, redirectTo)
+        deps.log('email_changed', {})
+        return { status: 200, body: { ok: true, message: `Email changed. A link to choose a password was sent to ${email}.` } }
+      }
+
+      // password_link
+      await deps.superRecord(actor, target, 'password_link', reason, {})
+      await deps.sendSetupLink(user.email, redirectTo)
+      deps.log('password_link_sent', {})
+      return { status: 200, body: { ok: true, message: `A link to choose a new password was sent to ${user.email}.` } }
     }
 
     // ------------------------------------------------ status and role

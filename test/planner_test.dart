@@ -318,4 +318,17 @@ void main() {
       expect(r, isEmpty);
     });
   });
+
+  group('Catch-up tasks', () {
+    test('a task carried over from an earlier day is marked as catch-up', () {
+      const missed = PlanTask(
+          key: 'guide-0', kind: PlanTaskKind.guide, title: 'Read section 1',
+          reason: 'Catch-up: this section was planned for an earlier day', target: 1, section: 0);
+      const fresh = PlanTask(
+          key: 'guide-1', kind: PlanTaskKind.guide, title: 'Read section 2',
+          reason: '4 sections of 5 still to read', target: 1, section: 1);
+      expect(missed.isCatchUp, isTrue);
+      expect(fresh.isCatchUp, isFalse);
+    });
+  });
 }

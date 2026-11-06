@@ -162,6 +162,9 @@ class PlanTask {
   /// The guide section, for a reading task.
   final int? section;
 
+  /// Work planned for an earlier day that was missed and comes back today.
+  bool get isCatchUp => reason.startsWith('Catch-up');
+
   /// A rough time, so a day adds up to the minutes chosen.
   final int minutes;
 }

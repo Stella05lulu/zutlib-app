@@ -20,7 +20,7 @@
 // Nothing here logs note text, PDF content or model output: only event
 // names, the request type and outcome codes.
 
-import { MAX_INPUT_CHARS, MAX_PDF_BYTES } from './config.ts'
+import { MAX_INPUT_CHARS, MAX_PDF_BYTES, MAX_TOTAL_PDF_BYTES } from './config.ts'
 import { InvalidOutput, KINDS, validateOutput, type GeneratedResult, type Kind } from './validate.ts'
 import { ModelError } from './gemini.ts'
 
@@ -34,6 +34,18 @@ export interface PreparedNote {
   file_path?: string | null
   /** A kit's YouTube video, in the standard watch form. */
   youtube_url?: string | null
+  /** Every source of the kit, in order (0020). When present it replaces
+   *  the single-source fields above. */
+  sources?: KitSource[]
+}
+
+export interface KitSource {
+  kind: 'upload' | 'library' | 'youtube' | 'text'
+  label?: string
+  bucket?: string | null
+  path?: string | null
+  youtube_url?: string | null
+  body?: string | null
 }
 
 export interface CacheLookup {
@@ -71,7 +83,7 @@ export interface Deps {
    *  -1 if the student's limit is used up, -2 if the project's is. */
   consume(userId: string): Promise<number>
   /** Returns Gemini's raw answer text. */
-  generate(kind: Kind, title: string, body: string, pdf: Uint8Array | null, youtubeUrl: string | null): Promise<string>
+  generate(kind: Kind, title: string, body: string, pdfs: Uint8Array[], youtubeUrls: string[]): Promise<string>
   store(
     userId: string, noteId: string, kind: Kind, hash: string,
     result: GeneratedResult, fileSha: string,
@@ -99,6 +111,7 @@ export const MESSAGES = {
   project_limit_reached: 'AI help has reached its limit for today across ZutLib. Try again tomorrow. Everything else still works.',
   input_too_long: `This note is too long for AI help. Keep the typed text under ${MAX_INPUT_CHARS.toLocaleString('en')} characters, or split it into two notes.`,
   file_too_large: `This PDF is larger than ${MB} MB, which is too big for AI help. Try a smaller file, for example one chapter.`,
+  files_too_large: `Together these PDFs are larger than ${Math.round(MAX_TOTAL_PDF_BYTES / (1024 * 1024))} MB, which is too much for AI help at once. Remove a PDF from the kit, or split it into two kits.`,
   file_missing: 'The PDF for this note could not be found. It may have been removed from the library.',
   not_pdf: 'That file is not a readable PDF.',
   ai_busy: 'The AI service is busy right now. Wait a minute and try again.',
@@ -159,43 +172,77 @@ export async function run(
     }
   }
   const title = prepared.title ?? ''
-  const noteBody = prepared.body ?? ''
 
-  // ---- 3. input length: the typed text, then the PDF
+  // Every source in order. A kit made before 0020 (or an older database)
+  // gives the single-source fields instead.
+  const sources: KitSource[] = Array.isArray(prepared.sources)
+    ? prepared.sources
+    : [
+      ...(prepared.file_bucket && prepared.file_path
+        ? [{ kind: 'upload' as const, bucket: prepared.file_bucket, path: prepared.file_path }] : []),
+      ...(prepared.youtube_url ? [{ kind: 'youtube' as const, youtube_url: prepared.youtube_url }] : []),
+    ]
+
+  const texts = sources.filter((x) => x.kind === 'text' && typeof x.body === 'string' && x.body.trim())
+  const noteBody = [prepared.body ?? '', ...texts.map((x) => `${x.label ?? 'Notes'}:\n${x.body}`)]
+    .filter((x) => x.trim() !== '')
+    .join('\n\n')
+
   if (title.length + noteBody.length > MAX_INPUT_CHARS) {
     deps.log('refused', { kind, reason: 'input_too_long' })
     return fail('input_too_long', 413)
   }
-  let pdf: Uint8Array | null = null
-  let fileSha = ''
-  if (prepared.file_bucket && prepared.file_path) {
-    try {
-      pdf = await deps.downloadFile(prepared.file_bucket, prepared.file_path, MAX_PDF_BYTES)
-    } catch (e) {
-      const code: Code = e instanceof FileError ? e.code : 'file_missing'
-      deps.log('refused', { kind, reason: code })
-      return fail(code, code === 'file_too_large' ? 413 : code === 'not_pdf' ? 415 : 404)
-    }
-    if (pdf.byteLength > MAX_PDF_BYTES) {
-      deps.log('refused', { kind, reason: 'file_too_large' })
-      return fail('file_too_large', 413)
-    }
-    // A real PDF starts with "%PDF-".
-    if (!(pdf[0] === 0x25 && pdf[1] === 0x50 && pdf[2] === 0x44 && pdf[3] === 0x46 && pdf[4] === 0x2d)) {
-      deps.log('refused', { kind, reason: 'not_pdf' })
-      return fail('not_pdf', 415)
-    }
-    fileSha = await sha256Hex(pdf)
-  }
-  // A video is fingerprinted by its link, so the cache key changes with it.
-  const youtubeUrl = typeof prepared.youtube_url === 'string' && prepared.youtube_url ? prepared.youtube_url : null
-  if (youtubeUrl) fileSha = await sha256Hex(new TextEncoder().encode(`youtube:${youtubeUrl}`))
 
-  // ---- 4. cache: this exact content has been done before
+  const pdfs: Uint8Array[] = []
+  const youtubeUrls: string[] = []
+  const prints: string[] = []
+  let totalBytes = 0
+  for (const src of sources) {
+    if ((src.kind === 'upload' || src.kind === 'library') && src.bucket && src.path) {
+      let pdf: Uint8Array
+      try {
+        pdf = await deps.downloadFile(src.bucket, src.path, MAX_PDF_BYTES)
+      } catch (e) {
+        const code: Code = e instanceof FileError ? e.code : 'file_missing'
+        deps.log('refused', { kind, reason: code })
+        return fail(code, code === 'file_too_large' ? 413 : code === 'not_pdf' ? 415 : 404)
+      }
+      if (pdf.byteLength > MAX_PDF_BYTES) {
+        deps.log('refused', { kind, reason: 'file_too_large' })
+        return fail('file_too_large', 413)
+      }
+      if (!(pdf[0] === 0x25 && pdf[1] === 0x50 && pdf[2] === 0x44 && pdf[3] === 0x46 && pdf[4] === 0x2d)) {
+        deps.log('refused', { kind, reason: 'not_pdf' })
+        return fail('not_pdf', 415)
+      }
+      totalBytes += pdf.byteLength
+      if (totalBytes > MAX_TOTAL_PDF_BYTES) {
+        deps.log('refused', { kind, reason: 'files_too_large' })
+        return fail('files_too_large', 413)
+      }
+      pdfs.push(pdf)
+      prints.push(`pdf:${await sha256Hex(pdf)}`)
+    } else if (src.kind === 'youtube' && src.youtube_url) {
+      youtubeUrls.push(src.youtube_url)
+      prints.push(`youtube:${src.youtube_url}`)
+    } else if (src.kind === 'text' && src.body && src.body.trim()) {
+      prints.push(`text:${await sha256Hex(new TextEncoder().encode(src.body))}`)
+    }
+  }
+
+  // The fingerprint of the sources, part of the cache key. One PDF or one
+  // video gives exactly the value used before 0020, so results cached then
+  // are still found; several sources are fingerprinted together, in order.
+  let fileSha = ''
+  if (prints.length === 1 && prints[0].startsWith('pdf:')) fileSha = prints[0].slice(4)
+  else if (prints.length === 1 && prints[0].startsWith('youtube:')) {
+    fileSha = await sha256Hex(new TextEncoder().encode(prints[0]))
+  } else if (prints.length > 0) fileSha = await sha256Hex(new TextEncoder().encode(prints.join('\n')))
+
   const lookup = await deps.findCache(userId, noteId, kind, fileSha)
   if (lookup.cache_id) {
     const item = await deps.materialise(userId, lookup.cache_id)
-    deps.log('cache_hit', { kind, reused: item.reused, pdf: pdf !== null, video: youtubeUrl !== null })
+    deps.log('cache_hit', { kind, reused: item.reused, pdfs: pdfs.length, videos: youtubeUrls.length })
     return {
       status: 200,
       body: { ...item, cached: true, remaining: prepared.remaining ?? 0 },
@@ -209,7 +256,7 @@ export async function run(
 
   let raw: string
   try {
-    raw = await deps.generate(kind, title, noteBody, pdf, youtubeUrl)
+    raw = await deps.generate(kind, title, noteBody, pdfs, youtubeUrls)
   } catch (e) {
     const code: Code = e instanceof ModelError ? e.code : 'ai_failed'
     deps.log('model_error', { kind, code })
@@ -238,6 +285,6 @@ export async function run(
   }
 
   // ---- 8. done
-  deps.log('generated', { kind, pdf: pdf !== null, video: youtubeUrl !== null })
+  deps.log('generated', { kind, pdfs: pdfs.length, videos: youtubeUrls.length })
   return { status: 200, body: { ...item, cached: false, remaining } }
 }

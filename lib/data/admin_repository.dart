@@ -67,6 +67,23 @@ class AuditEntry {
         'admin.test_invite' => 'Sent a test invite',
         'admin.resend_invite' => 'Resent an invite',
         'admin.remove' => 'Removed an account',
+        'admin.restore' => 'Restored an account',
+        'admin.edit_profile' => 'Edited account details',
+        'admin.change_email' => 'Changed an email address',
+        'admin.password_link' => 'Sent a password link',
+        'admin.sign_out_everywhere' => 'Signed an account out everywhere',
+        'admin.settings' => 'Changed system settings',
+        'admin.announcement_create' => 'Posted an announcement',
+        'admin.announcement_edit' => 'Edited an announcement',
+        'admin.announcement_remove' => 'Removed an announcement',
+        'admin.view_as_start' => 'Started View as',
+        'admin.view_as_end' => 'Ended View as',
+        'borrow.approve' => 'Approved a borrow request',
+        'borrow.reject' => 'Rejected a borrow request',
+        'borrow.collect' => 'Recorded a collection',
+        'borrow.return' => 'Recorded a return',
+        'borrow.review' => 'Started reviewing a request',
+        'borrow.cancel' => 'Closed an uncollected request',
         'system.restore_super_admin' => 'Super admin restored from the dashboard',
         _ => action.replaceAll('.', ' ').replaceAll('_', ' '),
       };
@@ -180,6 +197,50 @@ class AdminRepository {
   Future<void> reactivate(String userId) => _call({'action': 'reactivate', 'user_id': userId});
   Future<void> setRole(String userId, UserRole role) =>
       _call({'action': 'set_role', 'user_id': userId, 'role': role.wire});
+
+  // ---------------------------------------------------------- super admin tools
+  // Each needs a reason, which the server stores in the audit log.
+
+  Future<String> editProfile(String userId,
+      {required String fullName, String? department, String? studentNumber, required String reason}) async {
+    final data = await _call({
+      'action': 'edit_profile',
+      'user_id': userId,
+      'full_name': fullName.trim(),
+      'department': department ?? '',
+      'student_number': studentNumber?.trim() ?? '',
+      'reason': reason,
+    });
+    return (data['message'] ?? 'Saved.') as String;
+  }
+
+  Future<String> changeEmail(String userId, String email, String reason) async {
+    final data = await _call({'action': 'change_email', 'user_id': userId, 'email': email.trim(), 'reason': reason});
+    return (data['message'] ?? 'Email changed.') as String;
+  }
+
+  Future<String> sendPasswordLink(String userId, String reason) async {
+    final data = await _call({'action': 'password_link', 'user_id': userId, 'reason': reason});
+    return (data['message'] ?? 'Link sent.') as String;
+  }
+
+  Future<String> signOutEverywhere(String userId, String reason) async {
+    final data = await _call({'action': 'sign_out_everywhere', 'user_id': userId, 'reason': reason});
+    return (data['message'] ?? 'Signed out everywhere.') as String;
+  }
+
+  Future<void> restore(String userId, String reason) =>
+      _call({'action': 'restore', 'user_id': userId, 'reason': reason});
+
+  /// One account, for the user detail screen.
+  Future<Profile?> user(String id) async {
+    try {
+      final row = await db.from('profiles').select('$_profileColumns,student_number').eq('id', id).maybeSingle();
+      return row == null ? null : Profile.fromMap(row);
+    } catch (e) {
+      throw Failure.from(e);
+    }
+  }
 
   /// Super admin only. The account is kept (status "removed"), so it can be
   /// restored; [reason] goes into the audit log.

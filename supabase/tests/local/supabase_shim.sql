@@ -77,3 +77,13 @@ grant execute on function storage.foldername(text) to authenticated, service_rol
 alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
 alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
 alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
+
+-- Added for 0018: invited users have invited_at set, and sign-in sessions.
+alter table auth.users add column if not exists invited_at timestamptz;
+create table if not exists auth.sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz default now()
+);
+-- Added for 0020: Storage keeps each file's size in metadata.
+alter table storage.objects add column if not exists metadata jsonb;

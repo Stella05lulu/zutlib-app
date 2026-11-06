@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/failure.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../data/governance_repository.dart' show governanceRepo;
 import '../../../models/profile.dart';
 import '../../../state/providers.dart';
 import '../../widgets/study_widgets.dart';
@@ -32,6 +33,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   String? _error;
   bool _done = false;
 
+  /// Whether sign-up is open (System settings, 0018). Null while asking.
+  bool? _open;
+
+  @override
+  void initState() {
+    super.initState();
+    governanceRepo.registrationOpen().then((v) {
+      if (mounted) setState(() => _open = v);
+    });
+  }
+
   @override
   void dispose() {
     _name.dispose();
@@ -56,7 +68,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       );
       if (mounted) setState(() => _done = true);
     } on Failure catch (f) {
-      if (mounted) setState(() => _error = f.message);
+      // The database refuses sign-up while registration is closed; say so
+      // plainly instead of showing the raw error.
+      final open = await governanceRepo.registrationOpen();
+      if (mounted) {
+        setState(() {
+          _open = open;
+          _error = f.message;
+        });
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -69,6 +89,20 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         title: 'Check your email',
         subtitle: 'We sent a link to ${_email.text.trim()}. Open it to verify your address. '
             'After that, an administrator approves your account and you can sign in.',
+        children: [
+          FilledButton(
+            onPressed: () => context.go('/login'),
+            child: const Text('Back to sign in'),
+          ),
+        ],
+      );
+    }
+
+    if (_open == false) {
+      return AuthScaffold(
+        title: 'Registration is closed',
+        subtitle: 'New student accounts cannot be made right now. Ask the library for an invite, '
+            'or try again later.',
         children: [
           FilledButton(
             onPressed: () => context.go('/login'),

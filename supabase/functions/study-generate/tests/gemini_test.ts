@@ -131,3 +131,16 @@ Deno.test('a refused video becomes ai_video, so the student is told to check it 
     () => callGemini('k', 'kit', 't', '', null, fakeFetch(400, { error: {} }), 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'),
     (e) => e instanceof ModelError && e.code === 'ai_video')
 })
+
+Deno.test('several PDFs and videos all go into one request, then the task text', () => {
+  const a = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 1])
+  const b = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 2])
+  const req = buildRequest('kit', 'Exam', 'notes', [a, b], ['https://www.youtube.com/watch?v=dQw4w9WgXcQ']) as {
+    contents: { parts: Record<string, unknown>[] }[]
+  }
+  const parts = req.contents[0].parts
+  assertEquals(parts.length, 4)
+  assert('inlineData' in parts[0] && 'inlineData' in parts[1], 'both PDFs attached')
+  assert('fileData' in parts[2], 'the video attached')
+  assert(String(parts[3].text).includes('taken together'), 'the prompt says they go together')
+})

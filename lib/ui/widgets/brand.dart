@@ -38,29 +38,44 @@ class _MarkPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Master drawing on a 256 grid; the bookmark spans x 64..192, y 24..232.
+    // Master drawing on a 256 grid, every point on an 8 px grid (made by
+    // docs/brand/build_brand.py). The bookmark spans x 64..192, y 24..232.
     final s = size.height / 208;
     Offset p(double x, double y) => Offset((x - 64) * s, (y - 24) * s);
-
+    final r = Radius.circular(6 * s);
     final path = Path()..fillType = PathFillType.evenOdd;
-    // The bookmark: a tall strip with a 30 degree notch at the foot.
-    path
-      ..moveTo(p(64, 24).dx, p(64, 24).dy)
-      ..lineTo(p(192, 24).dx, p(192, 24).dy)
-      ..lineTo(p(192, 232).dx, p(192, 232).dy)
-      ..lineTo(p(128, 195).dx, p(128, 195).dy)
-      ..lineTo(p(64, 232).dx, p(64, 232).dy)
-      ..close();
-    // The Z, cut out.
-    const z = [
-      [90.0, 62.0], [166.0, 62.0], [166.0, 88.0], [128.0, 126.0], [166.0, 126.0],
-      [166.0, 152.0], [90.0, 152.0], [90.0, 126.0], [128.0, 88.0], [90.0, 88.0],
-    ];
-    path.moveTo(p(z[0][0], z[0][1]).dx, p(z[0][0], z[0][1]).dy);
-    for (final pt in z.skip(1)) {
-      final o = p(pt[0], pt[1]);
-      path.lineTo(o.dx, o.dy);
-    }
+    void to(double x, double y) => path.lineTo(p(x, y).dx, p(x, y).dy);
+    void arc(double x, double y) => path.arcToPoint(p(x, y), radius: r);
+
+    // The bookmark: rounded top corners, a sharp notch 24 deep at the foot
+    // (the same as the Z's stroke).
+    path.moveTo(p(70, 24).dx, p(70, 24).dy);
+    to(186, 24);
+    arc(192, 30);
+    to(192, 232);
+    to(128, 208);
+    to(64, 232);
+    to(64, 30);
+    arc(70, 24);
+    path.close();
+
+    // The Z, cut out: three 24 px strokes, outer corners rounded, set a
+    // little above centre so it looks centred despite the notch.
+    path.moveTo(p(94, 56).dx, p(94, 56).dy);
+    to(162, 56);
+    arc(168, 62);
+    to(168, 80);
+    to(120, 136);
+    to(168, 136);
+    to(168, 154);
+    arc(162, 160);
+    to(94, 160);
+    arc(88, 154);
+    to(88, 136);
+    to(136, 80);
+    to(88, 80);
+    to(88, 62);
+    arc(94, 56);
     path.close();
 
     canvas.drawPath(path, Paint()..color = color..isAntiAlias = true);

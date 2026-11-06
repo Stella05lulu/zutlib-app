@@ -242,7 +242,7 @@ Deno.test('a PDF note: the PDF is fetched, fingerprinted and sent to Gemini', as
   const d = fake({
     prepare: () => Promise.resolve(pdfNote),
     findCache: (_u, _n, _k, sha) => { shaUsed = sha; return Promise.resolve({ content_hash: HASH, cache_id: null }) },
-    generate: (_k, _t, _b, pdf) => { sentPdf = pdf; return Promise.resolve('{"summary":"From the PDF."}') },
+    generate: (_k, _t, _b, pdfs) => { sentPdf = pdfs[0] ?? null; return Promise.resolve('{"summary":"From the PDF."}') },
     store: (_u, _n, _k, _h, _r, sha) => { storedSha = sha; return Promise.resolve({ kind: 'summary', id: 'p1', reused: false }) },
   })
   const out = await run('Bearer good-token', request, d)
@@ -336,7 +336,7 @@ Deno.test('a video kit: the link goes to Gemini and is part of the cache key', a
   const d = fake({
     prepare: () => Promise.resolve({ title: 'Lecture', body: '', remaining: 10, youtube_url: URL }),
     findCache: (_u, _n, _k, sha) => { cacheSha = sha; return Promise.resolve({ content_hash: HASH, cache_id: null }) },
-    generate: (_k, _t, _b, _p, video) => { sentVideo = video; return Promise.resolve('{"summary":"From the video."}') },
+    generate: (_k, _t, _b, _p, videos) => { sentVideo = videos[0] ?? null; return Promise.resolve('{"summary":"From the video."}') },
   })
   const out = await run('Bearer good-token', { type: 'summary', note_id: NOTE }, d)
   assertEquals(out.status, 200)
@@ -353,4 +353,84 @@ Deno.test('kit is an accepted request type', async () => {
   // must be refused and nothing stored.
   assertEquals(out.status, 502)
   assertEquals(d.calls.store, undefined)
+})
+
+// ---------------------------------------------------------------- several sources (0020)
+
+const PDF_A = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 1, 2, 3])
+const PDF_B = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 4, 5, 6])
+const VIDEO = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+const multi = {
+  title: 'Exam prep', body: 'My own notes.', remaining: 10,
+  sources: [
+    { kind: 'upload' as const, label: 'Lecture 1.pdf', bucket: 'study-files', path: 'u/l1.pdf' },
+    { kind: 'library' as const, label: 'Past paper', bucket: 'resources', path: 'p/2023.pdf' },
+    { kind: 'youtube' as const, label: 'Video', youtube_url: VIDEO },
+    { kind: 'text' as const, label: 'Formulas', body: 'V = IR' },
+  ],
+}
+
+Deno.test('every source reaches Gemini: both PDFs, the video and the typed text', async () => {
+  let sent: { body: string; pdfs: Uint8Array[]; videos: string[] } | null = null
+  const d = fake({
+    prepare: () => Promise.resolve(multi),
+    downloadFile: (bucket) => Promise.resolve(bucket === 'study-files' ? PDF_A : PDF_B),
+    generate: (_k, _t, body, pdfs, videos) => { sent = { body, pdfs, videos }; return Promise.resolve('{"summary":"All of it."}') },
+  })
+  const out = await run('Bearer good-token', { type: 'summary', note_id: NOTE }, d)
+  assertEquals(out.status, 200)
+  assertEquals(d.calls.downloadFile, 2)
+  assertEquals(sent!.pdfs, [PDF_A, PDF_B])
+  assertEquals(sent!.videos, [VIDEO])
+  assert(sent!.body.includes('My own notes.') && sent!.body.includes('Formulas:\nV = IR'), 'typed text is included')
+})
+
+Deno.test('the cache key covers every source, so changing one source changes it', async () => {
+  const keys: string[] = []
+  for (const body of ['V = IR', 'P = VI']) {
+    const d = fake({
+      prepare: () => Promise.resolve({ ...multi, sources: [...multi.sources.slice(0, 3), { kind: 'text' as const, label: 'F', body }] }),
+      downloadFile: (bucket) => Promise.resolve(bucket === 'study-files' ? PDF_A : PDF_B),
+      findCache: (_u, _n, _k, sha) => { keys.push(sha); return Promise.resolve({ content_hash: HASH, cache_id: null }) },
+    })
+    await run('Bearer good-token', { type: 'summary', note_id: NOTE }, d)
+  }
+  assertEquals(keys.length, 2)
+  assert(/^[0-9a-f]{64}$/.test(keys[0]), 'still a 64 character fingerprint')
+  assert(keys[0] !== keys[1], 'different sources give different keys')
+})
+
+Deno.test('one PDF as a source gives the same cache key as before, so old results are reused', async () => {
+  let key = ''
+  const d = fake({
+    prepare: () => Promise.resolve({ title: 'T', body: '', remaining: 10,
+      sources: [{ kind: 'upload' as const, bucket: 'study-files', path: 'u/a.pdf' }] }),
+    downloadFile: () => Promise.resolve(PDF_A),
+    findCache: (_u, _n, _k, sha) => { key = sha; return Promise.resolve({ content_hash: HASH, cache_id: null }) },
+  })
+  await run('Bearer good-token', { type: 'summary', note_id: NOTE }, d)
+  assertEquals(key, await sha256Hex(PDF_A))
+})
+
+Deno.test('several sources still cost one request from the daily allowance', async () => {
+  const d = fake({
+    prepare: () => Promise.resolve(multi),
+    downloadFile: (bucket) => Promise.resolve(bucket === 'study-files' ? PDF_A : PDF_B),
+  })
+  await run('Bearer good-token', { type: 'summary', note_id: NOTE }, d)
+  assertEquals(d.calls.consume, 1)
+})
+
+Deno.test('PDFs too big together are refused before anything is spent', async () => {
+  const big = new Uint8Array(10 * 1024 * 1024 - 10)
+  big.set([0x25, 0x50, 0x44, 0x46, 0x2d])
+  const d = fake({
+    prepare: () => Promise.resolve({ ...multi, sources: [multi.sources[0], multi.sources[1]] }),
+    downloadFile: () => Promise.resolve(big),
+  })
+  const out = await run('Bearer good-token', { type: 'summary', note_id: NOTE }, d)
+  assertEquals(out.status, 413)
+  assertEquals(out.body.error, 'files_too_large')
+  assertEquals(d.calls.consume, undefined)
+  assertEquals(d.calls.generate, undefined)
 })

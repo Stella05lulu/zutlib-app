@@ -144,6 +144,30 @@ export function restDeps(cfg: RestConfig): Omit<Deps, 'log'> {
       }) as Record<string, unknown>
     },
 
+    async editProfile(actor, target, fullName, department, studentNumber, reason) {
+      return await rpc('admin_edit_profile', {
+        p_actor: actor, p_target: target, p_full_name: fullName, p_department: department,
+        p_student_number: studentNumber, p_reason: reason,
+      }) as Record<string, unknown>
+    },
+
+    async superRecord(actor, target, action, reason, detail) {
+      await rpc('admin_super_record', {
+        p_actor: actor, p_target: target, p_action: action, p_reason: reason, p_detail: detail,
+      })
+    },
+
+    async revokeSessions(actor, target, reason) {
+      return Number(await rpc('admin_revoke_sessions', { p_actor: actor, p_target: target, p_reason: reason }))
+    },
+
+    async updateEmail(userId, email) {
+      await authCall(`/admin/users/${userId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ email, email_confirm: true }),
+      })
+    },
+
     async record(actor, action, target, detail) {
       await rpc('admin_record', { p_actor: actor, p_action: action, p_target: target, p_detail: detail })
     },

@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../models/study.dart';
 import '../../../state/study_providers.dart';
 import '../../../study/practice.dart';
 import '../../widgets/study_widgets.dart';
-import '../shared/pdf_viewer_screen.dart';
 import '../../../state/plan_providers.dart';
 import '../../../study/planner.dart' show dateOnly, examCountdown;
 import '../plan/plan_sheet.dart';
+import '../../../state/governance_providers.dart';
+import 'kit_sources.dart';
 import 'kit_widgets.dart';
 
 /// The kit's front page: what it is built on, AI help, and a way into
@@ -27,28 +27,6 @@ class KitMaterialsTab extends ConsumerStatefulWidget {
 }
 
 class _KitMaterialsTabState extends ConsumerState<KitMaterialsTab> {
-  String? _error;
-  bool _opening = false;
-
-  /// On the web the PDF opens inside the app (a new tab would be blocked
-  /// as a pop-up); phones hand it to the device's PDF reader.
-  Future<void> _openPdf() async {
-    setState(() => _opening = true);
-    final n = widget.kit.note;
-    final error = await openPdf(context, title: n.pdfLabel ?? n.title, loadUrl: () => studyRepo.pdfUrl(n));
-    if (mounted) {
-      setState(() {
-        _opening = false;
-        _error = error;
-      });
-    }
-  }
-
-  Future<void> _openVideo() async {
-    final ok = await launchUrl(Uri.parse(widget.kit.note.youtubeUrl!), mode: LaunchMode.externalApplication);
-    if (!ok && mounted) setState(() => _error = 'Could not open the video on this device.');
-  }
-
   @override
   Widget build(BuildContext context) {
     final c = StudyColors.of(context);
@@ -59,6 +37,7 @@ class _KitMaterialsTabState extends ConsumerState<KitMaterialsTab> {
     final on = KitPalette.onFill(n.color.wire);
     final level = smartLevel(kit.questions.map((q) => q.id), kit.stars);
     final mastery = deckMastery(kit.cards.map((x) => x.id), kit.boxes);
+    final hasExtra = (ref.watch(kitSourcesProvider(n.id)).valueOrNull ?? const []).isNotEmpty;
 
     return StudyPage(
       onRefresh: () async => widget.onChanged(),
@@ -93,17 +72,13 @@ class _KitMaterialsTabState extends ConsumerState<KitMaterialsTab> {
             ],
           ),
         ),
-        if (_error != null) ...[
-          const SizedBox(height: Gap.snug),
-          InlineNotice(_error!, error: true, onClose: () => setState(() => _error = null)),
-        ],
         const SizedBox(height: Gap.snug),
         _PlanLink(noteId: n.id),
 
         // ---------------------------------------------------- AI
         if (kit.guide == null) ...[
           const SizedBox(height: Gap.page),
-          n.hasMaterials
+          n.hasMaterials || hasExtra
               ? KitEmpty(
                   icon: Icons.auto_awesome_outlined,
                   title: 'Build this kit with AI',
@@ -167,39 +142,15 @@ class _KitMaterialsTabState extends ConsumerState<KitMaterialsTab> {
         ]),
 
         // ---------------------------------------------------- materials
-        const SectionLabel('Materials'),
-        if (n.hasPdf)
-          RowGroup(children: [
-            StudyRow(
-              title: n.pdfLabel ?? 'PDF',
-              detail: n.hasLibraryPdf ? 'From the ZutLib library' : 'Your upload. Only you can see it.',
-              trailing: OutlinedButton.icon(
-                onPressed: _opening ? null : _openPdf,
-                icon: const Icon(Icons.open_in_new, size: 16),
-                label: Text(_opening ? 'Opening' : 'Open'),
-              ),
-            ),
-          ]),
-        if (n.hasVideo)
-          RowGroup(children: [
-            StudyRow(
-              title: 'YouTube video',
-              detail: n.youtubeUrl,
-              detailLines: 1,
-              trailing: OutlinedButton.icon(
-                onPressed: _openVideo,
-                icon: const Icon(Icons.open_in_new, size: 16),
-                label: const Text('Watch'),
-              ),
-            ),
-          ]),
-        if (n.hasPdf || n.hasVideo) const SizedBox(height: Gap.tight),
+        const SectionLabel('Sources'),
+        KitSources(note: n, onChanged: widget.onChanged, loadMainPdf: () => studyRepo.pdfUrl(n)),
+        const SizedBox(height: Gap.page),
         RowGroup(children: [
           StudyRow(
             title: 'Your notes',
             detail: n.body.trim().isEmpty
-                ? (n.hasPdf || n.hasVideo
-                    ? 'Optional. Anything you type here is sent to AI along with the materials above.'
+                ? (n.hasPdf || n.hasVideo || hasExtra
+                    ? 'Optional. Anything you type here is sent to AI along with the sources above.'
                     : 'Nothing typed yet.')
                 : n.preview,
             detailLines: 3,

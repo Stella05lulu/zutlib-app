@@ -193,18 +193,25 @@ export function buildRequest(
   kind: Kind,
   title: string,
   body: string,
-  pdf: Uint8Array | null = null,
-  youtubeUrl: string | null = null,
+  pdf: Uint8Array | Uint8Array[] | null = null,
+  youtubeUrl: string | string[] | null = null,
 ) {
+  // One kit can have several PDFs and videos (0020); a single one is still
+  // accepted on its own.
+  const pdfs = pdf === null ? [] : Array.isArray(pdf) ? pdf : [pdf]
+  const videos = youtubeUrl === null ? [] : Array.isArray(youtubeUrl) ? youtubeUrl : [youtubeUrl]
   const typed = body.trim() === '' ? '(no typed notes)' : body
-  const material = pdf
-    ? `The attached PDF is the study material. The student's own note about it follows.\n\n` + fenceNote(title, typed)
-    : youtubeUrl
-    ? `The attached video is the study material. The student's own note about it follows.\n\n` + fenceNote(title, typed)
+  const what = pdfs.length + videos.length > 1
+    ? 'The attached files and videos are the study material, taken together.'
+    : pdfs.length === 1
+    ? 'The attached PDF is the study material.'
+    : 'The attached video is the study material.'
+  const material = pdfs.length + videos.length > 0
+    ? `${what} The student's own note about it follows.\n\n` + fenceNote(title, typed)
     : fenceNote(title, body)
   const parts: Record<string, unknown>[] = []
-  if (pdf) parts.push({ inlineData: { mimeType: 'application/pdf', data: toBase64(pdf) } })
-  if (youtubeUrl) parts.push({ fileData: { fileUri: youtubeUrl } })
+  for (const p of pdfs) parts.push({ inlineData: { mimeType: 'application/pdf', data: toBase64(p) } })
+  for (const v of videos) parts.push({ fileData: { fileUri: v } })
   parts.push({ text: `${TASKS[kind]}\n\n${material}` })
   return {
     systemInstruction: { parts: [{ text: SYSTEM_RULES }] },
@@ -247,9 +254,9 @@ export async function callGemini(
   kind: Kind,
   title: string,
   body: string,
-  pdf: Uint8Array | null = null,
+  pdf: Uint8Array | Uint8Array[] | null = null,
   fetchFn: typeof fetch = fetch,
-  youtubeUrl: string | null = null,
+  youtubeUrl: string | string[] | null = null,
 ): Promise<string> {
   let res: Response
   try {
@@ -269,7 +276,7 @@ export async function callGemini(
   if (!res.ok) {
     await res.body?.cancel()
     // A private, unlisted or removed video is refused as a bad request.
-    if (youtubeUrl && (res.status === 400 || res.status === 403 || res.status === 404)) {
+    if ((Array.isArray(youtubeUrl) ? youtubeUrl.length > 0 : !!youtubeUrl) && (res.status === 400 || res.status === 403 || res.status === 404)) {
       throw new ModelError('ai_video', `Gemini HTTP ${res.status} for a video`)
     }
     throw new ModelError('ai_failed', `Gemini HTTP ${res.status}`)

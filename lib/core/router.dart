@@ -13,6 +13,12 @@ import '../ui/screens/auth/reset_password_screen.dart';
 import '../ui/screens/auth/set_password_screen.dart';
 import '../ui/screens/auth/verify_email_screen.dart';
 import '../ui/screens/admin/admin_dashboard_screen.dart';
+import '../ui/screens/admin/announcements_screen.dart';
+import '../ui/screens/admin/audit_log_screen.dart';
+import '../ui/screens/admin/invitations_screen.dart';
+import '../ui/screens/admin/settings_screen.dart';
+import '../ui/screens/admin/user_detail_screen.dart';
+import '../ui/screens/admin/view_as_screen.dart';
 import '../ui/screens/admin/create_account_screen.dart';
 import '../ui/screens/admin/reports_screen.dart';
 import '../ui/screens/admin/users_screen.dart';
@@ -30,11 +36,15 @@ import '../ui/screens/staff/paper_form_screen.dart';
 import '../ui/screens/staff/paper_upload_screen.dart';
 import '../ui/screens/staff/request_detail_screen.dart';
 import '../ui/screens/staff/request_queue_screen.dart';
+import '../ui/screens/staff/today_screen.dart';
 import '../ui/screens/student/borrow_request_screen.dart';
 import '../ui/screens/student/browse_screen.dart';
+import '../ui/screens/student/home_screen.dart';
 import '../ui/screens/student/my_borrowing_screen.dart';
 import '../ui/screens/student/notifications_screen.dart';
+import '../ui/screens/student/progress_screen.dart';
 import '../ui/screens/student/resource_detail_screen.dart';
+import '../ui/screens/student/saved_screen.dart';
 import '../ui/screens/study/deck_screen.dart';
 import '../ui/screens/study/deck_study_screen.dart';
 import '../models/study.dart' show GameKind, GameKindX;
@@ -50,6 +60,8 @@ import 'supabase.dart';
 
 /// Screens only an approved student uses. Staff are sent home instead.
 bool _studentOnly(String path) =>
+    path == '/home' ||
+    path.startsWith('/progress') ||
     path.startsWith('/borrowing') ||
     path.startsWith('/plan') ||
     path.startsWith('/welcome') ||
@@ -116,6 +128,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (path.startsWith('/admin') && !profile.role.isAdmin) {
         return ref.read(homeRouteProvider);
       }
+      // System settings and View as are for the super admin only.
+      if ((path.startsWith('/admin/settings') || path.startsWith('/admin/view-as')) &&
+          profile.role != UserRole.superAdmin) {
+        return '/admin';
+      }
       if (path.startsWith('/staff') && !profile.role.isStaff) {
         return '/browse';
       }
@@ -138,19 +155,27 @@ final routerProvider = Provider<GoRouter>((ref) {
         navigatorKey: shellKey,
         builder: (_, __, child) => AppShell(child: child),
         routes: [
+          GoRoute(path: '/home', builder: (_, __) => const HomeScreen()),
           GoRoute(path: '/browse', builder: (_, __) => const BrowseScreen()),
           GoRoute(path: '/borrowing', builder: (_, __) => const MyBorrowingScreen()),
           GoRoute(path: '/plan', builder: (_, __) => const PlanHomeScreen()),
           GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
           GoRoute(path: '/study', builder: (_, __) => const StudyHomeScreen()),
+          GoRoute(path: '/staff/today', builder: (_, __) => const TodayScreen()),
           GoRoute(path: '/staff/requests', builder: (_, __) => const RequestQueueScreen()),
           GoRoute(path: '/staff/library', builder: (_, __) => const LibraryScreen()),
           GoRoute(path: '/admin', builder: (_, __) => const AdminDashboardScreen()),
           GoRoute(path: '/admin/users', builder: (_, __) => const UsersScreen()),
+          GoRoute(path: '/admin/invitations', builder: (_, __) => const InvitationsScreen()),
+          GoRoute(path: '/admin/announcements', builder: (_, __) => const AnnouncementsScreen()),
+          GoRoute(path: '/admin/audit', builder: (_, __) => const AuditLogScreen()),
+          GoRoute(path: '/admin/settings', builder: (_, __) => const SettingsScreen()),
         ],
       ),
 
       GoRoute(path: '/updates', builder: (_, __) => const NotificationsScreen()),
+      GoRoute(path: '/saved', builder: (_, __) => const SavedScreen()),
+      GoRoute(path: '/progress', builder: (_, __) => const ProgressScreen()),
       GoRoute(path: '/welcome', builder: (_, __) => const OnboardingScreen()),
       GoRoute(path: '/profile/edit', builder: (_, __) => const ProfileEditScreen()),
       GoRoute(path: '/admin/reports', builder: (_, __) => const ReportsScreen()),
@@ -187,6 +212,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, s) => LinkFormScreen(linkId: s.pathParameters['id']),
       ),
       GoRoute(path: '/admin/users/new', builder: (_, __) => const CreateAccountScreen()),
+      GoRoute(
+        path: '/admin/users/:id',
+        builder: (_, s) => UserDetailScreen(userId: s.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/admin/view-as/:id',
+        builder: (_, s) => ViewAsScreen(userId: s.pathParameters['id']!),
+      ),
 
       // Study assistant screens open full screen, above the tab bar.
       GoRoute(path: '/study/note/new', builder: (_, __) => const NoteEditorScreen()),

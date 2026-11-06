@@ -116,6 +116,8 @@ Deno.serve(async (req) => {
     patch.rejection_reason = reason
 
   } else if (action === 'collect') {
+    // The database sets the real due date from the borrowing period in
+    // System settings (0018); this value is only a fallback.
     const due = new Date()
     due.setDate(due.getDate() + DEFAULT_LOAN_DAYS)
     patch.status = 'collected'
@@ -171,7 +173,7 @@ Deno.serve(async (req) => {
   const bodies: Record<string, string> = {
     approve: `Your request was approved. Collect it from the library.`,
     reject:  `Your request was rejected. Reason: ${reason}`,
-    collect: `You collected this item. It is due back on ${patch.due_date}.`,
+    collect: `You collected this item. It is due back on ${updated.due_date ?? patch.due_date}.`,
     return:  'Thanks, this item is back on the shelf.',
     review:  'A librarian is reviewing your request.',
     cancel:  reason

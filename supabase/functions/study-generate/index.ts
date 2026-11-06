@@ -55,12 +55,12 @@ Deno.serve(async (req) => {
   try {
     const outcome = await run(req.headers.get('Authorization'), body, {
       ...db,
-      generate: (kind, title, text, pdf, youtubeUrl) => {
+      generate: (kind, title, text, pdfs, youtubeUrls) => {
         if (!apiKey) {
           log('config_error', { reason: 'GEMINI_API_KEY not set' })
           return Promise.reject(new Error('missing key'))
         }
-        return callGemini(apiKey, kind, title, text, pdf, fetch, youtubeUrl)
+        return callGemini(apiKey, kind, title, text, pdfs, fetch, youtubeUrls)
       },
       log,
     })

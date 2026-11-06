@@ -182,7 +182,8 @@ select pg_temp.t('S5', '+ The reason and the super admin role are in the audit e
       where action = 'admin.set_role' and target_id = '00000000-0000-4000-8000-0000000009d0'
       order by occurred_at desc limit 1$q$);
 select pg_temp.t('S6', '+ Super admin removes an admin (soft delete)', 'value=removed',
-  $q$select public.admin_apply('00000000-0000-4000-8000-0000000009a0', '00000000-0000-4000-8000-0000000009b1', 'remove') ->> 'status'$q$);
+  $q$select public.admin_apply('00000000-0000-4000-8000-0000000009a0', '00000000-0000-4000-8000-0000000009b1', 'remove',
+       null, 'Left the college') ->> 'status'$q$);
 select pg_temp.t('S7', 'The removed admin''s profile is still there', 'value=1',
   $q$select count(*)::text from public.profiles where id = '00000000-0000-4000-8000-0000000009b1'$q$);
 select pg_temp.t('S8', 'A removed admin can no longer act', 'error',

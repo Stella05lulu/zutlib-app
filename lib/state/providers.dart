@@ -44,8 +44,8 @@ final homeRouteProvider = Provider<String>((ref) {
   final profile = ref.watch(profileProvider).valueOrNull;
   return switch (profile?.role) {
     UserRole.admin || UserRole.superAdmin => '/admin',
-    UserRole.librarian => '/staff/requests',
-    _ => '/browse',
+    UserRole.librarian => '/staff/today',
+    _ => '/home',
   };
 });
 

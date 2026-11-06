@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ZutLib blue behind the launcher icon. -->
+    <color name="ic_launcher_background">#FF1D5FC4</color>
+    <!-- The app's canvas, so the splash hands over to the first screen without a flash. -->
+    <color name="splash_background">#FFF2F3F5</color>
+</resources>

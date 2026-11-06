@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../data/governance_repository.dart' show governanceRepo;
+import '../../../state/governance_providers.dart';
 import '../../../core/failure.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/profile.dart';
@@ -80,7 +82,10 @@ class _ResourceDetailScreenState extends ConsumerState<ResourceDetailScreen> {
       child: Builder(builder: (context) {
         final t = Theme.of(context).textTheme;
         return Scaffold(
-          appBar: StudyTopBar(title: async.valueOrNull?.type.label ?? 'Resource'),
+          appBar: StudyTopBar(
+            title: async.valueOrNull?.type.label ?? 'Resource',
+            actions: [_SaveButton(resourceId: widget.resourceId, onMessage: _show)],
+          ),
           body: StudyPage(children: [
             StudyAsync<Resource>(
               value: async,
@@ -196,6 +201,49 @@ class _Detail extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Bookmark: adds the item to Saved, or takes it off. Each person's saves
+/// are their own (0019).
+class _SaveButton extends ConsumerStatefulWidget {
+  const _SaveButton({required this.resourceId, required this.onMessage});
+  final String resourceId;
+  final void Function(String message, bool isError) onMessage;
+
+  @override
+  ConsumerState<_SaveButton> createState() => _SaveButtonState();
+}
+
+class _SaveButtonState extends ConsumerState<_SaveButton> {
+  bool _busy = false;
+
+  Future<void> _toggle(bool saved) async {
+    setState(() => _busy = true);
+    try {
+      if (saved) {
+        await governanceRepo.unsave(widget.resourceId);
+      } else {
+        await governanceRepo.save(widget.resourceId);
+      }
+      ref.invalidate(savedProvider);
+      await ref.read(savedProvider.future);
+    } on Failure catch (f) {
+      widget.onMessage(f.message, true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loaded = ref.watch(savedProvider).hasValue;
+    final saved = ref.watch(savedIdsProvider).contains(widget.resourceId);
+    return IconButton(
+      tooltip: saved ? 'Remove from Saved' : 'Save for later',
+      onPressed: !loaded || _busy ? null : () => _toggle(saved),
+      icon: Icon(saved ? Icons.bookmark : Icons.bookmark_border),
     );
   }
 }

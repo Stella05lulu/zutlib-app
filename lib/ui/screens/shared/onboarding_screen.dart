@@ -68,7 +68,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       if (!skipped) await Reminders.requestPermission();
       ref.invalidate(profileProvider);
       await ref.read(profileProvider.future);
-      if (mounted) context.go('/browse');
+      if (mounted) context.go('/home');
     } on Failure catch (f) {
       if (mounted) setState(() => _error = f.message);
     } finally {
