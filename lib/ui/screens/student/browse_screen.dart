@@ -11,7 +11,7 @@ import '../../../models/profile.dart';
 import '../../../state/providers.dart';
 import '../../widgets/common.dart';
 import '../../widgets/state_views.dart';
-import '../../widgets/notification_bell.dart';
+import '../../widgets/section_switch.dart';
 import '../../../state/plan_providers.dart';
 
 class BrowseScreen extends ConsumerStatefulWidget {
@@ -116,6 +116,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           _Header(
+                            student: profile?.role == UserRole.student,
                             firstName: profile?.fullName.split(' ').first,
                             subtitle: profile == null
                                 ? null
@@ -314,9 +315,12 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
 /// The page title, then one quiet line saying who is signed in. Search,
 /// the main task, comes straight after it.
 class _Header extends StatelessWidget {
-  const _Header({required this.firstName, required this.subtitle});
+  const _Header({required this.firstName, required this.subtitle, this.student = false});
   final String? firstName;
   final String? subtitle;
+
+  /// Students get the Browse and Saved switch (Saved is part of Explore).
+  final bool student;
 
   @override
   Widget build(BuildContext context) {
@@ -328,11 +332,8 @@ class _Header extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(children: [
-          Expanded(child: Text('Explore', style: t.headlineSmall?.copyWith(fontSize: 28, fontWeight: FontWeight.w700))),
-          const NotificationBell(),
-        ]),
-        const SizedBox(height: Insets.xs),
+        SectionHeader(title: 'Explore', sections: student ? exploreSections : const []),
+        const SizedBox(height: Insets.sm),
         Text(
           who.isEmpty
               ? 'Past papers, notes and books from the ZUT library.'

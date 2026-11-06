@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -6,9 +7,10 @@ import '../../../core/theme/app_theme.dart';
 import '../../widgets/pdf_frame_stub.dart' if (dart.library.js_interop) '../../widgets/pdf_frame_web.dart';
 import '../../widgets/study_widgets.dart';
 
-/// Opens a PDF. On the web it is read inside the app: a new tab opened
-/// after waiting for the signed link counts as a pop-up, and browsers block
-/// it without a word. Phones hand the file to the device's PDF reader.
+/// Opens a PDF inside the app. On the web it is the browser's own reader in
+/// a frame (a new tab opened after waiting for the signed link counts as a
+/// pop-up, and browsers block it without a word). On phones the pages are
+/// drawn by the app so they can be zoomed.
 ///
 /// [loadUrl] makes the short-lived signed link. Returns an error message
 /// for the caller to show, or null when the PDF opened.
@@ -51,11 +53,13 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
             appBar: StudyTopBar(title: widget.title, actions: [
               if (url != null)
                 IconButton(
-                  tooltip: 'Open in a new tab',
+                  tooltip: kIsWeb ? 'Open in a new tab' : 'Open in another app',
                   icon: const Icon(Icons.open_in_new),
                   // A direct tap with the link already in hand, so the
                   // browser allows the new tab.
-                  onPressed: () => launchUrl(Uri.parse(url), webOnlyWindowName: '_blank'),
+                  onPressed: () => launchUrl(Uri.parse(url),
+                      mode: kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
+                      webOnlyWindowName: '_blank'),
                 ),
             ]),
             body: switch (snap) {

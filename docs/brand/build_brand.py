@@ -172,8 +172,9 @@ def favicon():
 # --------------------------------------------------------- Android vectors
 def android_vector(fill, name):
     """A 108 dp adaptive icon layer with the mark in the 66 dp safe zone."""
-    # Mark 56 dp tall, centred: scale 56/208 on the 256 grid.
-    s = 56 / 208
+    # Mark 42 dp tall, centred: about 60% of the 72 dp the launcher shows,
+    # with blue all round it (56 dp crowded the edges of the circle).
+    s = 42 / 208
     tx = 54 - 128 * s
     ty = 54 - 128 * s
     return f'''<?xml version="1.0" encoding="utf-8"?>
@@ -230,8 +231,8 @@ if __name__ == '__main__':
     write('docs/brand/zutlib-lockup.svg', lockup(BLUE, INK))
     write('docs/brand/zutlib-lockup-black.svg', lockup(INK, INK))
     write('docs/brand/zutlib-lockup-reversed.svg', lockup(PAPER, PAPER))
-    write('docs/brand/zutlib-app-icon.svg', tile(113, 304))
-    write('docs/brand/zutlib-maskable.svg', tile(0, 232))
+    write('docs/brand/zutlib-app-icon.svg', tile(113, 264))
+    write('docs/brand/zutlib-maskable.svg', tile(0, 208))
     write('docs/brand/favicon.svg', favicon())
     write('docs/brand/refinement-before-after.svg', comparison())
     write('android/app/src/main/res/drawable/ic_launcher_foreground.xml', android_vector(PAPER, 'launcher foreground'))

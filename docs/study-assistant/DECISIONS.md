@@ -69,6 +69,15 @@ Every choice made while building the module, one line each, with the reason. Rec
 - **Resource details put the actions under the title**, before the details list, so "Open the PDF", "Ask to borrow" and "Study this with AI" are visible without scrolling on a phone.
 - **Logo: concept B, a bookmark with a Z cut through it**, chosen by the student from three concepts. Drawn in code (`ZutLibMark`), with SVG masters and rendered icons in `docs/brand/`.
 
+## Fuller kits and fairer practice (migration 0022, 6 November 2026)
+
+- **A kit is written in four parts at the same time**: the guide, the flashcards, easy and medium questions, and hard scenario questions. Each part is a separate Gemini request over the same sources, run in parallel, so a much bigger kit takes about as long as its slowest part (the guide) instead of the sum. It still counts as one of the student's 10 daily builds. The guide and the cards must both arrive; if one set of questions fails, the kit is kept with the other set.
+- **The guide must cover everything.** The prompt asks for every topic, definition, list, process, formula, model, example and comparison, at least one section per file or lecture, up to 30 sections of 4 to 10 sentences each. Students revise from it, so leaving things out would mean studying half the material.
+- **Sizes**: up to 10 sources per kit (still 30 MB of PDFs), 100 flashcards, 120 questions, tests of up to 100 questions. Over-long text from the model is trimmed to the limits and repeated terms or questions are dropped, rather than throwing a whole build away.
+- **Smart study levels follow difficulty**: easy, then medium, then hard. A question answered right the first time is mastered and never asked again in that run; a miss (or "Show answer") brings it back later in the same level until it has been answered right twice more. Before, every level asked the whole bank again, and the "not the last three asked" rule could serve a question already answered right instead of the one just missed.
+- **Flashcards**: "Knew it" makes a card Known straight away and Mastered the next time; "Almost" puts it in Reviewing; "Didn't know" sends it back to Learning. The deck moves on to the next card not yet Mastered and says where the last card went, so a rating never seems to do nothing.
+- **Kit names**: left empty, a kit made from several files is named after what the file names share ("BIT4440 Cloud Computing"), not after the first file.
+
 ## Build plan of 4 November 2026 (migrations 0016 to 0021)
 
 - **Four ranked roles: student, librarian, admin, super admin.** Everyone acts only on accounts ranked below them, and nobody changes their own role or status. The rule is in `admin_apply` and a trigger on `profiles`, so the app, the Edge Function and even a direct API call all meet it.

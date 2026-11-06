@@ -29,10 +29,16 @@ export const MAX_OUTPUT_TOKENS = 8192
 // costs nothing; this only stops a runaway answer.
 export const MAX_OUTPUT_TOKENS_KIT = 24576
 
+// A kit is now written in four parts at the same time (guide, flashcards,
+// two sets of questions), so a much fuller kit takes about as long as the
+// slowest part instead of the sum of them. The guide is the longest.
+export const MAX_OUTPUT_TOKENS_GUIDE = 32768
+export const MAX_OUTPUT_TOKENS_PART = 16384
+
 // How long to wait for Gemini before giving up, in milliseconds. A PDF can
 // take a while to read; Supabase stops a free-plan function that has not
 // answered after 150 seconds, so this stays well under that.
-export const GEMINI_TIMEOUT_MS = 100000
+export const GEMINI_TIMEOUT_MS = 115000
 
 // The largest PDF sent to Gemini, in bytes (10 MB). Gemini accepts up to
 // 50 MB, but a larger file is slow, uses much more of the free quota, and

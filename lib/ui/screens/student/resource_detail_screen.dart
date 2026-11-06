@@ -125,6 +125,9 @@ class _ResourceDetailScreenState extends ConsumerState<ResourceDetailScreen> {
                         icon: const Icon(Icons.school_outlined, size: 18),
                         label: Text(_studying ? 'Preparing' : 'Study this with AI'),
                       ),
+                    // A labelled Save button beside the main actions: the
+                    // bookmark in the top bar alone was easy to miss.
+                    _SaveButton(resourceId: widget.resourceId, onMessage: _show, labelled: true),
                     if (isStudent && r.isPhysical && r.canBeBorrowed)
                       OutlinedButton.icon(
                         onPressed: () => context.push('/resource/${r.id}/borrow'),
@@ -208,9 +211,12 @@ class _Detail extends StatelessWidget {
 /// Bookmark: adds the item to Saved, or takes it off. Each person's saves
 /// are their own (0019).
 class _SaveButton extends ConsumerStatefulWidget {
-  const _SaveButton({required this.resourceId, required this.onMessage});
+  const _SaveButton({required this.resourceId, required this.onMessage, this.labelled = false});
   final String resourceId;
   final void Function(String message, bool isError) onMessage;
+
+  /// A button with words ("Save" / "Saved") instead of the bare bookmark.
+  final bool labelled;
 
   @override
   ConsumerState<_SaveButton> createState() => _SaveButtonState();
@@ -229,6 +235,7 @@ class _SaveButtonState extends ConsumerState<_SaveButton> {
       }
       ref.invalidate(savedProvider);
       await ref.read(savedProvider.future);
+      widget.onMessage(saved ? 'Removed from Saved.' : 'Saved. Find it in Explore, Saved.', false);
     } on Failure catch (f) {
       widget.onMessage(f.message, true);
     } finally {
@@ -238,11 +245,23 @@ class _SaveButtonState extends ConsumerState<_SaveButton> {
 
   @override
   Widget build(BuildContext context) {
-    final loaded = ref.watch(savedProvider).hasValue;
+    final list = ref.watch(savedProvider);
+    // Wait only while the list is first loading. If loading it failed the
+    // button still works (it used to stay greyed out with no reason given),
+    // and a real problem shows as a message when tapped.
+    final waiting = list.isLoading && !list.hasValue;
     final saved = ref.watch(savedIdsProvider).contains(widget.resourceId);
+    final onPressed = waiting || _busy ? null : () => _toggle(saved);
+    if (widget.labelled) {
+      return OutlinedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(saved ? Icons.bookmark : Icons.bookmark_border, size: 18),
+        label: Text(saved ? 'Saved' : 'Save'),
+      );
+    }
     return IconButton(
       tooltip: saved ? 'Remove from Saved' : 'Save for later',
-      onPressed: !loaded || _busy ? null : () => _toggle(saved),
+      onPressed: onPressed,
       icon: Icon(saved ? Icons.bookmark : Icons.bookmark_border),
     );
   }

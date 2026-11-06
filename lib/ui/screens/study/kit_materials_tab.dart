@@ -35,7 +35,8 @@ class _KitMaterialsTabState extends ConsumerState<KitMaterialsTab> {
     final n = kit.note;
     final fill = KitPalette.fill(n.color.wire);
     final on = KitPalette.onFill(n.color.wire);
-    final level = smartLevel(kit.questions.map((q) => q.id), kit.stars);
+    final level = smartLevel(kit.questions.map((q) => q.id), kit.stars,
+        difficulty: {for (final q in kit.questions) q.id: q.difficulty});
     final mastery = deckMastery(kit.cards.map((x) => x.id), kit.boxes);
     final hasExtra = (ref.watch(kitSourcesProvider(n.id)).valueOrNull ?? const []).isNotEmpty;
 
@@ -120,7 +121,7 @@ class _KitMaterialsTabState extends ConsumerState<KitMaterialsTab> {
                 ? 'No questions yet'
                 : level.complete
                     ? 'Every question mastered'
-                    : 'Level ${level.level}: ${level.percent}%',
+                    : 'Level ${level.level} of ${level.levels} (${level.name}): ${level.percent}%',
             progress: kit.questions.isEmpty ? null : level.mastery,
             onTap: () => widget.onOpenTab(2),
           ),

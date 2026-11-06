@@ -9,10 +9,10 @@ import '../../../core/theme.dart' show kNavClearance;
 import '../../../core/theme/app_theme.dart';
 import '../../../models/study.dart';
 import '../../../state/study_providers.dart';
+import '../../widgets/section_switch.dart';
 import '../../widgets/study_widgets.dart';
 import 'kit_widgets.dart';
 import 'new_note_sheet.dart';
-import '../../widgets/notification_bell.dart';
 import '../../../models/resource.dart';
 import '../../../state/plan_providers.dart';
 
@@ -79,12 +79,8 @@ class _StudyHomeScreenState extends ConsumerState<StudyHomeScreen> {
               onRefresh: _refresh,
               children: [
                 const SizedBox(height: Gap.tight),
-                Row(children: [
-                  Expanded(
-                      child: Text('Study', style: t.headlineSmall?.copyWith(fontSize: 30, fontWeight: FontWeight.w700))),
-                  const NotificationBell(),
-                ]),
-                const SizedBox(height: Gap.hair),
+                const SectionHeader(title: 'Study', sections: studySections),
+                const SizedBox(height: Gap.snug),
                 Text('Turn any PDF, video or notes into a study guide, flashcards, practice and tests.',
                     style: t.bodyLarge?.copyWith(color: c.inkSoft)),
                 const SizedBox(height: Gap.page),

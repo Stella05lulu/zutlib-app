@@ -11,18 +11,24 @@ import 'app_drawer.dart';
 import 'brand.dart';
 
 class NavTarget {
-  const NavTarget(this.path, this.label, this.icon, this.activeIcon);
+  const NavTarget(this.path, this.label, this.icon, this.activeIcon, {this.also = const []});
   final String path, label;
   final IconData icon, activeIcon;
+
+  /// Other pages that belong to this tab (Study's Plan and Progress), so the
+  /// tab stays lit on them.
+  final List<String> also;
 }
 
 // Each role sees only its own areas. The router and the database enforce
 // the same split; these lists only decide which tabs are drawn.
-// Plan, Saved, My progress and Updates are in the drawer opened from Home.
+// Every student page is reachable from these five tabs (Plan and Progress
+// are parts of Study, Saved is part of Explore, Updates is the bell), so
+// students have no menu drawer.
 const _studentNav = [
   NavTarget('/home', 'Home', Icons.home_outlined, Icons.home_rounded),
-  NavTarget('/browse', 'Explore', Icons.explore_outlined, Icons.explore_rounded),
-  NavTarget('/study', 'Study', Icons.school_outlined, Icons.school_rounded),
+  NavTarget('/browse', 'Explore', Icons.explore_outlined, Icons.explore_rounded, also: ['/saved']),
+  NavTarget('/study', 'Study', Icons.school_outlined, Icons.school_rounded, also: ['/plan', '/progress']),
   NavTarget('/borrowing', 'Borrowing', Icons.auto_stories_outlined, Icons.auto_stories_rounded),
   NavTarget('/profile', 'Account', Icons.account_circle_outlined, Icons.account_circle_rounded),
 ];
@@ -62,10 +68,11 @@ class AppShell extends ConsumerWidget {
     var index = 0;
     var best = -1;
     for (var i = 0; i < targets.length; i++) {
-      final p = targets[i].path;
-      if ((location == p || location.startsWith('$p/')) && p.length > best) {
-        best = p.length;
-        index = i;
+      for (final p in [targets[i].path, ...targets[i].also]) {
+        if ((location == p || location.startsWith('$p/')) && p.length > best) {
+          best = p.length;
+          index = i;
+        }
       }
     }
 
@@ -107,23 +114,36 @@ class AppShell extends ConsumerWidget {
     );
 
     final wide = MediaQuery.sizeOf(context).width >= kWideBreakpoint;
+    final noDrawer = profile?.role == UserRole.student;
+
+    // The phone's back button: from any page reached through the menu or the
+    // tabs it goes to the home page for the role (Overview, Today or Home),
+    // and only leaves the app from there.
+    final home = ref.watch(homeRouteProvider);
+    Widget withBack(Widget scaffold) => PopScope(
+          canPop: location == home,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) context.go(home);
+          },
+          child: scaffold,
+        );
 
     // Administrators: the grouped menu beside the page on a wide screen,
     // or as a drawer from the menu button in each top bar.
     if (targets.isEmpty) {
       if (wide) {
-        return Scaffold(
+        return withBack(Scaffold(
           key: shellScaffoldKey,
           body: Row(children: [const AppDrawer(permanent: true), Expanded(child: page)]),
-        );
+        ));
       }
-      return Scaffold(key: shellScaffoldKey, drawer: const AppDrawer(), body: page);
+      return withBack(Scaffold(key: shellScaffoldKey, drawer: const AppDrawer(), body: page));
     }
 
     if (wide) {
-      return Scaffold(
+      return withBack(Scaffold(
         key: shellScaffoldKey,
-        drawer: const AppDrawer(),
+        drawer: noDrawer ? null : const AppDrawer(),
         body: Row(
           children: [
             _Rail(
@@ -137,14 +157,14 @@ class AppShell extends ConsumerWidget {
             Expanded(child: page),
           ],
         ),
-      );
+      ));
     }
 
     // A standard bottom bar with a label under every icon: nothing to
     // guess, and the page above it never hides behind it.
-    return Scaffold(
+    return withBack(Scaffold(
       key: shellScaffoldKey,
-      drawer: const AppDrawer(),
+      drawer: noDrawer ? null : const AppDrawer(),
       body: page,
       bottomNavigationBar: DecoratedBox(
         decoration: BoxDecoration(border: Border(top: BorderSide(color: Palette.line))),
@@ -162,7 +182,7 @@ class AppShell extends ConsumerWidget {
           ],
         ),
       ),
-    );
+    ));
   }
 }
 

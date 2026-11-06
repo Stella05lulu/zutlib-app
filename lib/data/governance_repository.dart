@@ -277,7 +277,7 @@ class ViewAsData {
 class GovernanceRepository {
   const GovernanceRepository();
 
-  static const kitMaxSources = 5;
+  static const kitMaxSources = 10; // 0022_bigger_kits.sql
   static const kitMaxBytes = 30 * 1024 * 1024;
 
   static Future<T> _guard<T>(Future<T> Function() body) async {

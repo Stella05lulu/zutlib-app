@@ -161,7 +161,7 @@ class _KitSourcesState extends ConsumerState<KitSources> {
           });
           return;
         }
-        // One at a time, so the server's checks (five sources, 30 MB) apply
+        // One at a time, so the server's checks (ten sources, 30 MB) apply
         // to each and the message says which file stopped it.
         await _run(
           ok.length == 1 ? 'PDF added.' : '${ok.length} PDFs added.',
@@ -270,7 +270,7 @@ class _KitSourcesState extends ConsumerState<KitSources> {
           child: OutlinedButton.icon(
             onPressed: _busy || full ? null : _add,
             icon: const Icon(Icons.add, size: 18),
-            label: Text(_busy ? 'Working' : full ? 'This kit has 5 sources' : 'Add a source'),
+            label: Text(_busy ? 'Working' : full ? 'This kit has ${GovernanceRepository.kitMaxSources} sources' : 'Add a source'),
           ),
         ),
       ],

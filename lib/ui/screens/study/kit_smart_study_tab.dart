@@ -13,10 +13,10 @@ import '../../widgets/study_widgets.dart';
 import 'editor_sheets.dart';
 import 'kit_widgets.dart';
 
-/// Smart Study: one question at a time, chosen from the ones with the
-/// fewest stars. A right answer or a thumbs up earns a star; a wrong
-/// answer or a thumbs down starts that question again. Three levels, each
-/// a third of all the stars in the kit.
+/// Smart Study: one question at a time, easy questions first, then medium,
+/// then hard. Right the first time masters a question (3 stars) and it is
+/// not asked again; a wrong answer brings it back later in the same level
+/// until it has been answered right twice more (practice.dart).
 class KitSmartStudyTab extends ConsumerStatefulWidget {
   const KitSmartStudyTab({super.key, required this.kit, required this.onChanged});
   final KitData kit;
@@ -37,6 +37,7 @@ class _KitSmartStudyTabState extends ConsumerState<KitSmartStudyTab> {
   String? _error;
 
   List<QuizQuestion> get _questions => widget.kit.questions;
+  Map<String, int> get _difficulty => {for (final q in _questions) q.id: q.difficulty};
 
   @override
   void initState() {
@@ -65,7 +66,7 @@ class _KitSmartStudyTabState extends ConsumerState<KitSmartStudyTab> {
 
   /// Chooses the next question without redrawing (safe in initState).
   void _pickNext() {
-    final id = pickNextQuestion([for (final q in _questions) q.id], _stars, _recent, _rng);
+    final id = pickNextQuestion([for (final q in _questions) q.id], _stars, _recent, _rng, difficulty: _difficulty);
     _currentId = id;
     _chosen = null;
     _revealed = false;
@@ -80,9 +81,9 @@ class _KitSmartStudyTabState extends ConsumerState<KitSmartStudyTab> {
 
   /// Saves the new star count in the background; the screen moves on.
   void _setStars(String id, int stars) {
-    final levelBefore = smartLevel(_questions.map((q) => q.id), _stars).level;
+    final levelBefore = smartLevel(_questions.map((q) => q.id), _stars, difficulty: _difficulty).level;
     setState(() => _stars[id] = stars);
-    final levelAfter = smartLevel(_questions.map((q) => q.id), _stars).level;
+    final levelAfter = smartLevel(_questions.map((q) => q.id), _stars, difficulty: _difficulty).level;
     unawaited(studyRepo.rateQuestion(id, stars).then((_) {
       if (levelAfter != levelBefore && mounted) widget.onChanged();
     }).catchError((Object e) {
@@ -171,7 +172,7 @@ class _KitSmartStudyTabState extends ConsumerState<KitSmartStudyTab> {
       ]);
     }
 
-    final level = smartLevel(_questions.map((q) => q.id), _stars);
+    final level = smartLevel(_questions.map((q) => q.id), _stars, difficulty: _difficulty);
     final q = _current;
 
     return StudyPage(
@@ -180,7 +181,9 @@ class _KitSmartStudyTabState extends ConsumerState<KitSmartStudyTab> {
           children: [
             Expanded(
               child: LevelBar(
-                label: level.complete ? 'All levels done' : 'Level ${level.level}: ${level.percent}%',
+                label: level.complete
+                    ? 'All levels done'
+                    : 'Level ${level.level} of ${level.levels}: ${level.name}  ${level.percent}%',
                 progress: level.complete ? 1 : level.progress,
                 stars: level.starsShown,
               ),
@@ -192,6 +195,14 @@ class _KitSmartStudyTabState extends ConsumerState<KitSmartStudyTab> {
             ),
           ],
         ),
+        if (!level.complete) ...[
+          const SizedBox(height: Gap.tight),
+          Text(
+            '${level.left} ${level.left == 1 ? 'question' : 'questions'} left at this level  /  '
+            '${(level.mastery * 100).round()}% of the kit mastered',
+            style: t.bodySmall,
+          ),
+        ],
         if (_error != null) ...[
           const SizedBox(height: Gap.snug),
           InlineNotice(_error!, error: true, onClose: () => setState(() => _error = null)),
@@ -201,7 +212,7 @@ class _KitSmartStudyTabState extends ConsumerState<KitSmartStudyTab> {
           KitEmpty(
             icon: Icons.emoji_events_outlined,
             title: 'Every question mastered',
-            sentence: 'You earned three stars on all ${_questions.length} questions. Take a test to check it sticks.',
+            sentence: 'You mastered all ${_questions.length} questions. Take a test to check it sticks.',
             actions: [FilledButton(onPressed: _startAgain, child: const Text('Practise again'))],
           )
         else ...[
@@ -211,8 +222,16 @@ class _KitSmartStudyTabState extends ConsumerState<KitSmartStudyTab> {
                 Icon(i < (_stars[q.id] ?? 0) ? Icons.star_rounded : Icons.star_outline_rounded,
                     size: 16, color: i < (_stars[q.id] ?? 0) ? c.warn : c.lineStrong),
               const SizedBox(width: Gap.tight),
-              Text(switch (q.difficulty) { 1 => 'Easy', 3 => 'Hard', _ => 'Medium' },
-                  style: Mono.of(context, size: 12)),
+              Text(difficultyName(q.difficulty), style: Mono.of(context, size: 12)),
+              const Spacer(),
+              Text(
+                (_stars[q.id] ?? 0) == 0
+                    ? 'New question'
+                    : Stars.mastered(_stars[q.id])
+                        ? 'Mastered'
+                        : 'Missed before: ${Stars.max - (_stars[q.id] ?? 0)} more right to master',
+                style: t.bodySmall,
+              ),
             ],
           ),
           const SizedBox(height: Gap.tight),
@@ -243,7 +262,14 @@ class _KitSmartStudyTabState extends ConsumerState<KitSmartStudyTab> {
                 FilledButton(
                   style: FilledButton.styleFrom(backgroundColor: c.ink, foregroundColor: c.canvas,
                       shape: const StadiumBorder()),
-                  onPressed: () => setState(() => _revealed = true),
+                  // Looking at the answer counts as a miss, so it comes back.
+                  onPressed: () {
+                    setState(() {
+                      _revealed = true;
+                      _rated = true;
+                    });
+                    _setStars(q.id, Stars.afterAnswer(_stars[q.id] ?? 0, correct: false));
+                  },
                   child: const Text('Show answer'),
                 )
               else

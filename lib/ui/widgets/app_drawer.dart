@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/theme.dart' show kWideBreakpoint;
 import '../../core/theme/app_theme.dart';
 import '../../data/account_repository.dart';
 import '../../data/governance_repository.dart' show AdminBadges;
@@ -19,16 +20,29 @@ bool get shellHasDrawer => shellScaffoldKey.currentState?.hasDrawer ?? false;
 
 /// The menu button for a screen's top bar. It shows only while the shell
 /// has a drawer to open (on wide screens the menu is always visible).
-class ShellMenuButton extends StatelessWidget {
+/// True when the menu button should show: staff and administrators have the
+/// drawer (students do not), except an administrator on a wide screen, who has it open beside
+/// the page. Decided from the role and width, so the button is there on the
+/// very first frame (it used to wait for the drawer and could be missing).
+bool showsShellMenu(BuildContext context, UserRole? role) =>
+    role != null &&
+    role != UserRole.student && // students move around with the five tabs
+    !(role.isAdmin && MediaQuery.sizeOf(context).width >= kWideBreakpoint);
+
+class ShellMenuButton extends ConsumerWidget {
   const ShellMenuButton({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final state = shellScaffoldKey.currentState;
-    if (state == null || !state.hasDrawer) return const SizedBox.shrink();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final role = ref.watch(profileProvider).valueOrNull?.role;
+    if (!showsShellMenu(context, role)) return const SizedBox.shrink();
+    // The icon's left edge lines up with the page content under it.
     return IconButton(
       tooltip: 'Menu',
       icon: const Icon(Icons.menu),
+      padding: EdgeInsets.zero,
+      alignment: Alignment.centerLeft,
+      constraints: const BoxConstraints.tightFor(width: 48, height: 48),
       onPressed: () => shellScaffoldKey.currentState?.openDrawer(),
     );
   }
@@ -146,7 +160,7 @@ class AppDrawer extends ConsumerWidget {
       i.onOpen?.call(ref);
       if (!permanent) Navigator.of(context).pop();
       // Full-screen pages open on top; shell pages replace the current tab.
-      const pushed = {'/updates', '/saved', '/progress'};
+      const pushed = {'/updates'};
       if (pushed.contains(i.path)) {
         router.push(i.path);
       } else {

@@ -34,7 +34,7 @@ class AdminDashboardScreen extends ConsumerWidget {
 
     Future<void> refresh() async {
       refreshAdmin(ref);
-      ref.invalidate(_feedbackProvider);
+      ref.invalidate(feedbackListProvider);
       try {
         await ref.read(adminDashboardProvider.future);
       } catch (_) {
@@ -95,7 +95,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                   ),
                   data: (d) => _Body(d: d),
                 ),
-                const _FeedbackSection(),
+                const FeedbackSection(),
               ],
             ),
           ),
@@ -270,15 +270,20 @@ String _initials(String name) {
 }
 
 
-final _feedbackProvider = FutureProvider.autoDispose<List<FeedbackItem>>((ref) => accountRepo.feedback(limit: 20));
+/// The latest feedback, for administrators.
+final feedbackListProvider = FutureProvider.autoDispose<List<FeedbackItem>>((ref) => accountRepo.feedback(limit: 20));
 
-/// Feedback sent from Account, Send feedback: newest first, open ones on top.
-class _FeedbackSection extends ConsumerWidget {
-  const _FeedbackSection();
+/// Feedback sent from Account, Send feedback: newest first, open ones on
+/// top. Shown on the Overview and, for administrators, from Account.
+class FeedbackSection extends ConsumerWidget {
+  const FeedbackSection({super.key, this.limit = 10});
+
+  /// How many items to list.
+  final int limit;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(_feedbackProvider);
+    final async = ref.watch(feedbackListProvider);
     final c = StudyColors.of(context);
     final t = Theme.of(context).textTheme;
     return Column(
@@ -287,14 +292,14 @@ class _FeedbackSection extends ConsumerWidget {
         const SectionLabel('Feedback'),
         StudyAsync<List<FeedbackItem>>(
           value: async,
-          onRetry: () => ref.invalidate(_feedbackProvider),
+          onRetry: () => ref.invalidate(feedbackListProvider),
           skeleton: const RowsSkeleton(rows: 2, detail: false),
           isEmpty: (v) => v.isEmpty,
           empty: const StudyEmptyState('No feedback yet. Students and staff send it from Account.', compact: true),
           data: (items) {
             final sorted = [...items]..sort((a, b) => a.resolved == b.resolved ? 0 : (a.resolved ? 1 : -1));
             return RowGroup(children: [
-              for (final f in sorted.take(10))
+              for (final f in sorted.take(limit))
                 Padding(
                   padding: const EdgeInsets.fromLTRB(Gap.page - 4, Gap.snug, Gap.tight, Gap.snug),
                   child: Row(
@@ -321,7 +326,7 @@ class _FeedbackSection extends ConsumerWidget {
                       TextButton(
                         onPressed: () async {
                           await accountRepo.resolveFeedback(f.id, !f.resolved);
-                          ref.invalidate(_feedbackProvider);
+                          ref.invalidate(feedbackListProvider);
                         },
                         child: Text(f.resolved ? 'Reopen' : 'Mark done'),
                       ),

@@ -101,7 +101,7 @@ class _KitTestTabState extends ConsumerState<KitTestTab> {
     }
 
     final available = questionsAvailable(_bank, _levels[_level]);
-    final maxCount = min(50, _bank.length);
+    final maxCount = min(100, _bank.length);
     final count = _count.clamp(1, maxCount);
     final testsAsync = ref.watch(testsProvider(kit.note.id));
     final existing = testsAsync.valueOrNull?.length ?? 0;
@@ -129,7 +129,8 @@ class _KitTestTabState extends ConsumerState<KitTestTab> {
                   IconButton.outlined(
                     tooltip: 'Fewer',
                     icon: const Icon(Icons.remove, size: 18),
-                    onPressed: count > 1 ? () => setState(() => _count = count - 1) : null,
+                    // Steps of 5 above 10, so a 60-question exam is a few taps.
+                    onPressed: count > 1 ? () => setState(() => _count = count > 10 ? count - 5 : count - 1) : null,
                   ),
                   SizedBox(
                     width: 48,
@@ -138,7 +139,9 @@ class _KitTestTabState extends ConsumerState<KitTestTab> {
                   IconButton.outlined(
                     tooltip: 'More',
                     icon: const Icon(Icons.add, size: 18),
-                    onPressed: count < maxCount ? () => setState(() => _count = count + 1) : null,
+                    onPressed: count < maxCount
+                        ? () => setState(() => _count = min(maxCount, count >= 10 ? count + 5 : count + 1))
+                        : null,
                   ),
                 ],
               ),

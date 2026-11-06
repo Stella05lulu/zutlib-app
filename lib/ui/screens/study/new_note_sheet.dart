@@ -14,11 +14,12 @@ import '../../../models/resource.dart';
 import '../../../models/study.dart';
 import '../../../state/providers.dart';
 import '../../../state/study_providers.dart';
+import '../../../study/kit_name.dart';
 import '../../widgets/study_widgets.dart';
 import 'kit_widgets.dart';
 
 /// "Provide your materials": the start of a new study kit. A kit is built
-/// on up to five PDFs the student uploads, one YouTube video, pasted or typed
+/// on up to ten PDFs the student uploads, one YouTube video, pasted or typed
 /// text, or a PDF already in the library. "Proceed without materials"
 /// makes an empty kit the student fills by hand.
 ///
@@ -52,7 +53,7 @@ class _NewKitSheetState extends ConsumerState<_NewKitSheet> {
   final _link = TextEditingController();
   final _text = TextEditingController();
   /// The PDFs chosen so far: the first becomes the kit's main source, the
-  /// rest are added as extra sources (at most five, 30 MB together).
+  /// rest are added as extra sources (at most ten, 30 MB together).
   final List<({String name, Uint8List bytes})> _pdfs = [];
   Resource? _resource;
   bool _busy = false;
@@ -132,9 +133,9 @@ class _NewKitSheetState extends ConsumerState<_NewKitSheet> {
           case _Source.upload:
             final first = _pdfs.first;
             final name = first.name;
-            final stem = name.toLowerCase().endsWith('.pdf') ? name.substring(0, name.length - 4) : name;
             note = await studyRepo.createPdfNote(
-              title: _titleOr(stem.trim().isEmpty ? 'My PDF' : stem),
+              // Left empty, the name comes from what the files share.
+              title: _titleOr(kitNameFromFiles([for (final p in _pdfs) p.name], fallback: 'My PDF')),
               bytes: first.bytes,
               fileName: name,
               color: color,

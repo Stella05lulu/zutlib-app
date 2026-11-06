@@ -2,7 +2,7 @@
 
 ## 1. Setup
 
-The full project setup (migrations 0001 to 0021, the seven security test files, edge functions, Authentication settings, email templates, the first administrator and the sample data) is in the main `README.md` under Setup. The study assistant needs, in addition:
+The full project setup (migrations 0001 to 0022, the seven security test files, edge functions, Authentication settings, email templates, the first administrator and the sample data) is in the main `README.md` under Setup. The study assistant needs, in addition:
 
 1. **Gemini key** (free from aistudio.google.com, no payment method): `supabase secrets set GEMINI_API_KEY=paste-your-key-here`, then `supabase functions deploy study-generate`.
 2. **Demo students with study material.** Authentication -> Users -> Add user, twice: `sample.student.a@zutlib.test` and `sample.student.b@zutlib.test`, each with a password you choose and "Auto Confirm User" ticked. Then run `scripts/seed_study_demo.sql` in the SQL Editor. It approves both accounts and gives them sample notes, a deck and a quiz. Then run `scripts/seed_demo_extras.sql`: sample announcements, saved items, a kit with several sources, six weeks of quiz attempts (for My progress), an overdue loan, a request waiting for a librarian, and real audit entries. Run both again before each demo to reset them.
@@ -13,7 +13,7 @@ Sample data is for demonstration only. Every sample book and paper shows a "Samp
 
 Do these the day before, then tick them again an hour before.
 
-- [ ] All 21 migrations applied; all seven test files in `supabase/tests/` PASS (`rls_negative`, `study_rls`, `roles_rls`, `study_kits_rls`, `planner_rls`, `super_admin_rls`, `plan_items_rls`).
+- [ ] All 22 migrations applied; all seven test files in `supabase/tests/` PASS (`rls_negative`, `study_rls`, `roles_rls`, `study_kits_rls`, `planner_rls`, `super_admin_rls`, `plan_items_rls`).
 - [ ] `scripts/restore_super_admin.sql` run with your email: you are the super admin.
 - [ ] One study kit already built with AI from your lecture-notes PDF (so the demo does not wait on Gemini), and one public YouTube lecture link copied.
 - [ ] `admin-users`, `decide-request` and `study-generate` deployed; `register` deleted; `GEMINI_API_KEY` set.
@@ -70,7 +70,7 @@ If Gemini is slow or busy at 1:50, say so (the app shows the reason in plain wor
 ## 4. Known limitations
 
 - **YouTube videos.** Gemini's YouTube reading is a preview feature: public videos only (not private or unlisted), free, up to 8 hours of video a day per project. If Google refuses a video the student is told to try a public one or upload the notes as a PDF.
-- **Five sources per kit.** A kit holds up to five sources (uploaded PDFs, library PDFs, YouTube links, typed text), with at most 30 MB of PDFs in total.
+- **Ten sources per kit.** A kit holds up to ten sources (uploaded PDFs, library PDFs, YouTube links, typed text), with at most 30 MB of PDFs in total.
 - **Building again replaces.** "Build again" makes a new guide, deck and question bank and removes the old ones, with their progress.
 - **PDF download.** The study guide downloads as a PDF using the IBM Plex font fetched from Google Fonts; offline it falls back to the built-in font.
 

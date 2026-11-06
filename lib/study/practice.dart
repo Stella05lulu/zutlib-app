@@ -24,13 +24,37 @@ extension CardBoxX on CardBox {
 /// The three buttons under a card: red, yellow and green.
 enum CardRating { again, unsure, gotIt }
 
-/// Red sends a card back to Learning, yellow keeps it in Reviewing, and
-/// green moves it one box up, to Mastered at most.
+extension CardRatingX on CardRating {
+  /// What the button says, so its meaning never depends on colour.
+  String get label => switch (this) {
+        CardRating.again => "Didn't know",
+        CardRating.unsure => 'Almost',
+        CardRating.gotIt => 'Knew it',
+      };
+}
+
+/// Red ("Didn't know") sends a card back to Learning. Yellow ("Almost")
+/// puts it in Reviewing. Green ("Knew it") makes a Learning or Reviewing
+/// card Known straight away, and a Known card Mastered, so knowing a card
+/// shows in the counts the first time.
 CardBox nextBox(CardBox current, CardRating rating) => switch (rating) {
       CardRating.again => CardBox.learning,
       CardRating.unsure => CardBox.reviewing,
-      CardRating.gotIt => CardBox.values[min(current.index + 1, CardBox.mastered.index)],
+      CardRating.gotIt => current.index < CardBox.known.index ? CardBox.known : CardBox.mastered,
     };
+
+/// The card to show after [current]: the next one in order that is not yet
+/// Mastered, so a session works through what still needs practice. When
+/// every card is Mastered it simply moves on.
+int nextCardIndex(List<String> cardIds, Map<String, int> boxes, int current) {
+  final n = cardIds.length;
+  if (n == 0) return 0;
+  for (var step = 1; step <= n; step++) {
+    final i = (current + step) % n;
+    if ((boxes[cardIds[i]] ?? 0) < CardBox.mastered.index) return i;
+  }
+  return (current + 1) % n;
+}
 
 /// How many of [cardIds] sit in each box. A card never rated is Learning.
 Map<CardBox, int> boxCounts(Iterable<String> cardIds, Map<String, int> boxes) {
@@ -52,63 +76,123 @@ double deckMastery(Iterable<String> cardIds, Map<String, int> boxes) {
 
 // ------------------------------------------------------------------ smart study
 
-/// Each question earns 0 to 3 stars. A right answer or a thumbs up adds a
-/// star; a wrong answer or a thumbs down takes the question back to none.
+/// Each question earns 0 to 3 stars; 3 means mastered and it is not asked
+/// again. Right the first time: 3 stars at once. A miss leaves 1 star and
+/// the question comes back later in the same level, until it has been
+/// answered right twice more. So only the questions a student gets wrong
+/// are repeated.
 abstract final class Stars {
   static const max = 3;
 
-  static int afterAnswer(int current, {required bool correct}) =>
-      correct ? min(current + 1, max) : 0;
+  static int afterAnswer(int current, {required bool correct}) {
+    if (!correct) return 1;
+    if (current <= 0) return max;
+    return min(current + 1, max);
+  }
+
+  static bool mastered(int? stars) => (stars ?? 0) >= max;
 }
 
-/// Where a student is in Smart Study for one kit.
-class SmartLevel {
-  const SmartLevel({required this.level, required this.progress, required this.mastery});
+/// Difficulty 1 to 3 as a word.
+String difficultyName(int d) => switch (d) { 1 => 'Easy', 3 => 'Hard', _ => 'Medium' };
 
-  /// 1 to 3 while practising; 4 once every question has 3 stars.
+/// Where a student is in Smart Study for one kit. The levels follow the
+/// questions' difficulty: easy questions first, then medium, then hard.
+/// A level with no questions is skipped.
+class SmartLevel {
+  const SmartLevel({
+    required this.level,
+    required this.levels,
+    required this.progress,
+    required this.mastery,
+    required this.complete,
+    this.difficulty = 2,
+    this.left = 0,
+  });
+
+  /// 1 for the first level that has questions, and so on.
   final int level;
+
+  /// How many levels this kit has (1 to 3).
+  final int levels;
 
   /// How far through the current level, from 0 to 1.
   final double progress;
 
-  /// Stars earned out of all the stars there are, from 0 to 1.
+  /// Mastered questions out of all of them, from 0 to 1.
   final double mastery;
 
-  bool get complete => level > 3;
+  final bool complete;
 
-  /// The stars shown next to the level bar: one per level finished.
-  int get starsShown => min(level - 1, 3);
+  /// The difficulty the current level asks (1 easy, 2 medium, 3 hard).
+  final int difficulty;
+
+  /// Questions still to master in the current level.
+  final int left;
+
+  /// One star for each level finished.
+  int get starsShown => complete ? levels : level - 1;
 
   int get percent => (progress * 100).floor();
+
+  String get name => difficultyName(difficulty);
 }
 
-/// Three levels, each a third of all the stars in the kit.
-SmartLevel smartLevel(Iterable<String> questionIds, Map<String, int> stars) {
+int _diff(Map<String, int> difficulty, String id) => (difficulty[id] ?? 2).clamp(1, 3);
+
+/// The level a student is on. [difficulty] maps question id to 1, 2 or 3;
+/// without it every question counts as medium (one level).
+SmartLevel smartLevel(Iterable<String> questionIds, Map<String, int> stars, {Map<String, int> difficulty = const {}}) {
   final ids = questionIds.toList();
-  if (ids.isEmpty) return const SmartLevel(level: 1, progress: 0, mastery: 0);
-  final earned = ids.fold<int>(0, (sum, id) => sum + (stars[id] ?? 0).clamp(0, Stars.max));
-  final mastery = earned / (ids.length * Stars.max);
-  if (mastery >= 1) return const SmartLevel(level: 4, progress: 1, mastery: 1);
-  final level = (mastery * 3).floor() + 1;
-  final progress = (mastery * 3 - (level - 1)).clamp(0.0, 1.0);
-  return SmartLevel(level: level, progress: progress, mastery: mastery);
+  if (ids.isEmpty) return const SmartLevel(level: 1, levels: 1, progress: 0, mastery: 0, complete: false);
+  final mastered = ids.where((id) => Stars.mastered(stars[id])).length;
+  final mastery = mastered / ids.length;
+  final buckets = [
+    for (final d in const [1, 2, 3])
+      if (ids.any((id) => _diff(difficulty, id) == d)) d,
+  ];
+  for (var i = 0; i < buckets.length; i++) {
+    final inLevel = ids.where((id) => _diff(difficulty, id) == buckets[i]).toList();
+    final open = inLevel.where((id) => !Stars.mastered(stars[id])).length;
+    if (open > 0) {
+      return SmartLevel(
+        level: i + 1,
+        levels: buckets.length,
+        progress: (inLevel.length - open) / inLevel.length,
+        mastery: mastery,
+        complete: false,
+        difficulty: buckets[i],
+        left: open,
+      );
+    }
+  }
+  return SmartLevel(level: buckets.length, levels: buckets.length, progress: 1, mastery: 1, complete: true, difficulty: buckets.last);
 }
 
-/// The next question to practise: one with the fewest stars, avoiding the
-/// last few asked when there is any choice. Null when all have 3 stars.
+/// The next question to practise, from the current level only: questions
+/// never asked come first (in random order), then the ones answered wrong.
+/// The question just asked is not repeated straight away when there is any
+/// other choice. Null when every question is mastered, or there are none.
 String? pickNextQuestion(
   List<String> questionIds,
   Map<String, int> stars,
   List<String> recent,
-  Random rng,
-) {
-  final open = questionIds.where((id) => (stars[id] ?? 0) < Stars.max).toList();
-  if (open.isEmpty) return null;
-  final fresh = open.where((id) => !recent.contains(id)).toList();
-  final pool = fresh.isEmpty ? open : fresh;
-  final fewest = pool.map((id) => stars[id] ?? 0).reduce(min);
-  final candidates = pool.where((id) => (stars[id] ?? 0) == fewest).toList();
-  return candidates[rng.nextInt(candidates.length)];
+  Random rng, {
+  Map<String, int> difficulty = const {},
+}) {
+  final level = smartLevel(questionIds, stars, difficulty: difficulty);
+  if (level.complete) return null;
+  final open = questionIds
+      .where((id) => _diff(difficulty, id) == level.difficulty && !Stars.mastered(stars[id]))
+      .toList();
+  final last = recent.isEmpty ? null : recent.last;
+  final notLast = open.where((id) => id != last).toList();
+  final pool = notLast.isEmpty ? open : notLast;
+  final unseen = pool.where((id) => (stars[id] ?? 0) == 0).toList();
+  final from = unseen.isNotEmpty ? unseen : pool;
+  // No questions at all (a kit whose build failed) is not an error.
+  if (from.isEmpty) return null;
+  return from[rng.nextInt(from.length)];
 }
 
 // ------------------------------------------------------------------ games

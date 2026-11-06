@@ -34,10 +34,11 @@ export const LIMITS = {
   questionsMin: 1, questionsMax: 15, questionChars: 500,
   optionsMin: 2, optionsMax: 6, optionChars: 200, explanationChars: 1000,
   // A study kit (0014_study_kits.sql)
-  overviewChars: 2000, sectionsMin: 1, sectionsMax: 12, headingChars: 160,
-  sectionSummaryChars: 1500, pointsMax: 10, pointChars: 300,
-  kitCardsMin: 4, kitCardsMax: 40, termChars: 200, definitionChars: 600,
-  kitQuestionsMin: 4, kitQuestionsMax: 30,
+  // Raised in 0022_bigger_kits.sql so a guide can cover several lectures.
+  overviewChars: 2000, sectionsMin: 1, sectionsMax: 30, headingChars: 160,
+  sectionSummaryChars: 3000, pointsMax: 12, pointChars: 400,
+  kitCardsMin: 4, kitCardsMax: 100, termChars: 200, definitionChars: 600,
+  kitQuestionsMin: 4, kitQuestionsMax: 120,
 } as const
 
 const DIFFICULTIES: readonly Difficulty[] = ['easy', 'medium', 'hard']

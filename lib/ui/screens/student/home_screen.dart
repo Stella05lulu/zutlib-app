@@ -111,8 +111,8 @@ class HomeScreen extends ConsumerWidget {
                   }),
                   _Quick('Study kits', Icons.school_outlined, Tone.sky, () => context.go('/study')),
                   _Quick('Plan', Icons.event_note_outlined, Tone.warn, () => context.go('/plan')),
-                  _Quick('Saved', Icons.bookmark_border, Tone.danger, () => context.push('/saved')),
-                  _Quick('My progress', Icons.insights_outlined, Tone.accent, () => context.push('/progress')),
+                  _Quick('Saved', Icons.bookmark_border, Tone.danger, () => context.go('/saved')),
+                  _Quick('My progress', Icons.insights_outlined, Tone.accent, () => context.go('/progress')),
                 ]),
                 const _ContinueStudying(),
                 const _UpcomingExams(),
@@ -375,7 +375,7 @@ class _Numbers extends ConsumerWidget {
         detail: streak == null ? null : (streak == 0 ? 'Take a test to start one' : 'From your test and quiz days'),
         icon: Icons.local_fire_department_outlined,
         tone: Tone.warn,
-        onTap: () => context.push('/progress'),
+        onTap: () => context.go('/progress'),
       ),
     ]);
   }
@@ -583,7 +583,7 @@ class _Saved extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ShelfHeading('Saved', onSeeAll: () => context.push('/saved')),
+        ShelfHeading('Saved', onSeeAll: () => context.go('/saved')),
         ResourceShelf(items: items.take(12).toList()),
       ],
     );

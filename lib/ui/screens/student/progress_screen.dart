@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/theme.dart' show kNavClearance;
 import '../../../core/theme/app_theme.dart';
 import '../../../data/governance_repository.dart' show ProgressData;
 import '../../../state/governance_providers.dart';
 import '../../../study/progress.dart';
 import '../../widgets/charts.dart';
 import '../../widgets/shelves.dart';
+import '../../widgets/section_switch.dart';
 import '../../widgets/study_widgets.dart';
 
 /// My progress: scores over time for one kit or one course, and the
@@ -30,8 +32,10 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
     return StudyScope(
       child: Builder(builder: (context) {
         return Scaffold(
-          appBar: const StudyTopBar(title: 'My progress'),
-          body: StudyPage(
+          body: SafeArea(
+           bottom: false,
+           child: StudyPage(
+            bottom: kNavClearance,
             onRefresh: () async {
               ref.invalidate(progressDataProvider);
               try {
@@ -41,6 +45,9 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
               }
             },
             children: [
+              const SizedBox(height: Gap.tight),
+              const SectionHeader(title: 'Study', sections: studySections),
+              const SizedBox(height: Gap.page),
               StudyAsync<ProgressData>(
                 value: async,
                 onRetry: () => ref.invalidate(progressDataProvider),
@@ -62,6 +69,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                 ),
               ),
             ],
+           ),
           ),
         );
       }),

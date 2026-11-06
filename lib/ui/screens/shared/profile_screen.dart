@@ -9,7 +9,9 @@ import '../../../models/profile.dart';
 import '../../../services/reminders.dart';
 import '../../../state/providers.dart';
 import '../../../state/theme_mode.dart';
+import '../../widgets/app_drawer.dart' show showsShellMenu, ShellMenuButton;
 import '../../widgets/common.dart';
+import '../admin/admin_dashboard_screen.dart' show FeedbackSection, feedbackListProvider;
 import '../../widgets/feedback_sheet.dart';
 import '../../widgets/notification_bell.dart';
 import '../../widgets/state_views.dart';
@@ -21,8 +23,18 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(profileProvider);
 
+    // Account is one of the menu's pages, so its top bar has the menu button
+    // like the others (administrators had no way to move on from here).
+    final menu = showsShellMenu(context, async.valueOrNull?.role);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Account'), actions: const [NotificationBell(), SizedBox(width: Insets.xs)]),
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        leadingWidth: menu ? 64 : null,
+        leading: menu ? const Padding(padding: EdgeInsets.only(left: 16), child: ShellMenuButton()) : null,
+        title: const Text('Account'),
+        actions: const [NotificationBell(), SizedBox(width: Insets.xs)],
+      ),
       body: AsyncView<Profile?>(
         value: async,
         onRetry: () => ref.invalidate(profileProvider),
@@ -103,15 +115,36 @@ class ProfileScreen extends ConsumerWidget {
                   const _AppearancePicker(),
                   const SectionHeading('Account'),
                   Card(
-                    child: Column(
+                    // Transparent Material so the tiles' ink shows on the card.
+                    child: Material(
+                     type: MaterialType.transparency,
+                     child: Column(
                       children: [
-                        ListTile(
-                          leading: const Icon(Icons.feedback_outlined),
-                          title: const Text('Send feedback'),
-                          subtitle: const Text('Report a problem or suggest an idea'),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () => showFeedbackSheet(context),
-                        ),
+                        // Administrators read feedback rather than send it.
+                        if (profile.role.isAdmin) ...[
+                          ListTile(
+                            leading: const Icon(Icons.forum_outlined),
+                            title: const Text('User feedback'),
+                            subtitle: const Text('Read and resolve what students and staff send'),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () => _showFeedbackInbox(context),
+                          ),
+                          const Divider(height: 1),
+                          ListTile(
+                            leading: const Icon(Icons.history_outlined),
+                            title: const Text('Audit log'),
+                            subtitle: const Text('Every change made by staff and administrators'),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () => context.go('/admin/audit'),
+                          ),
+                        ] else
+                          ListTile(
+                            leading: const Icon(Icons.feedback_outlined),
+                            title: const Text('Send feedback'),
+                            subtitle: const Text('Report a problem or suggest an idea'),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () => showFeedbackSheet(context),
+                          ),
                         const Divider(height: 1),
                         ListTile(
                           leading: const Icon(Icons.lock_reset_outlined),
@@ -144,6 +177,7 @@ class ProfileScreen extends ConsumerWidget {
                           },
                         ),
                       ],
+                     ),
                     ),
                   ),
                   const SizedBox(height: Insets.xl),
@@ -160,6 +194,30 @@ class ProfileScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Feedback from students and staff, in a sheet over Account.
+void _showFeedbackInbox(BuildContext context) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (context) => Consumer(
+      builder: (context, ref, _) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.75,
+        maxChildSize: 0.95,
+        builder: (context, scroll) => RefreshIndicator(
+          onRefresh: () async => ref.invalidate(feedbackListProvider),
+          child: ListView(
+            controller: scroll,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            children: const [FeedbackSection(limit: 20)],
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _Row extends StatelessWidget {

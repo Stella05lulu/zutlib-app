@@ -157,6 +157,9 @@ class _DeckState extends State<_Deck> {
   late Map<String, int> _boxes = {...widget.kit.boxes};
   String? _error;
 
+  /// Where the last rated card went, shown under the buttons.
+  String? _moved;
+
   List<Flashcard> get _cards => widget.kit.cards;
 
   @override
@@ -178,11 +181,15 @@ class _DeckState extends State<_Deck> {
   void _rate(CardRating rating) {
     final card = _cards[_index];
     final next = nextBox(CardBoxX.fromInt(_boxes[card.id]), rating);
-    setState(() => _boxes[card.id] = next.index);
+    setState(() {
+      _boxes[card.id] = next.index;
+      _moved = '"${card.front}" moved to ${next.label}.';
+      _index = nextCardIndex([for (final c in _cards) c.id], _boxes, _index);
+      _flipped = false;
+    });
     unawaited(studyRepo.rateCard(card.id, next).catchError((Object e) {
       if (mounted) setState(() => _error = e is Failure ? e.message : 'Your progress could not be saved.');
     }));
-    _go(1);
   }
 
   Future<void> _reset() async {
@@ -267,17 +274,25 @@ class _DeckState extends State<_Deck> {
         const SizedBox(height: Gap.page),
         Text(_flipped ? 'How well did you know it?' : 'Tap the card to see the answer, then rate it.',
             style: t.bodyMedium, textAlign: TextAlign.center),
+        const SizedBox(height: Gap.hair),
+        Text("Knew it: Known, then Mastered the next time.  Almost: Reviewing.  Didn't know: back to Learning.",
+            style: t.bodySmall, textAlign: TextAlign.center),
         const SizedBox(height: Gap.snug),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _Rate(label: 'Again', icon: Icons.close, color: c.danger, wash: c.dangerWash, onTap: () => _rate(CardRating.again)),
+            _Rate(label: CardRating.again.label, icon: Icons.close, color: c.danger, wash: c.dangerWash, onTap: () => _rate(CardRating.again)),
             const SizedBox(width: Gap.page),
-            _Rate(label: 'Not sure', icon: Icons.remove, color: c.warn, wash: c.warnWash, onTap: () => _rate(CardRating.unsure)),
+            _Rate(label: CardRating.unsure.label, icon: Icons.remove, color: c.warn, wash: c.warnWash, onTap: () => _rate(CardRating.unsure)),
             const SizedBox(width: Gap.page),
-            _Rate(label: 'Got it', icon: Icons.check, color: c.success, wash: c.successWash, onTap: () => _rate(CardRating.gotIt)),
+            _Rate(label: CardRating.gotIt.label, icon: Icons.check, color: c.success, wash: c.successWash, onTap: () => _rate(CardRating.gotIt)),
           ],
         ),
+        if (_moved != null) ...[
+          const SizedBox(height: Gap.snug),
+          Text(_moved!, style: t.bodySmall?.copyWith(color: c.inkSoft), textAlign: TextAlign.center, maxLines: 2),
+        ],
+        const SizedBox(height: Gap.section),
       ],
     );
   }

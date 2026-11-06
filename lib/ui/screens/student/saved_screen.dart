@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/failure.dart';
+import '../../../core/theme.dart' show kNavClearance;
 import '../../../core/theme/app_theme.dart';
 import '../../../data/governance_repository.dart' show governanceRepo;
 import '../../../models/resource.dart';
 import '../../../state/governance_providers.dart';
 import '../../widgets/common.dart' show showMessage;
+import '../../widgets/section_switch.dart';
 import '../../widgets/study_widgets.dart';
 
 /// Everything this person bookmarked, newest first, with a search box.
@@ -44,8 +46,10 @@ class _SavedScreenState extends ConsumerState<SavedScreen> {
       child: Builder(builder: (context) {
         final t = Theme.of(context).textTheme;
         return Scaffold(
-          appBar: const StudyTopBar(title: 'Saved'),
-          body: StudyPage(
+          body: SafeArea(
+           bottom: false,
+           child: StudyPage(
+            bottom: kNavClearance,
             onRefresh: () async {
               ref.invalidate(savedProvider);
               try {
@@ -55,6 +59,9 @@ class _SavedScreenState extends ConsumerState<SavedScreen> {
               }
             },
             children: [
+              const SizedBox(height: Gap.tight),
+              const SectionHeader(title: 'Explore', sections: exploreSections),
+              const SizedBox(height: Gap.page),
               TextField(
                 decoration: const InputDecoration(
                   hintText: 'Search your saved items',
@@ -104,6 +111,7 @@ class _SavedScreenState extends ConsumerState<SavedScreen> {
                 },
               ),
             ],
+           ),
           ),
         );
       }),

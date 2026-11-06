@@ -11,7 +11,7 @@ import '../../../models/study.dart' show KitColorX;
 import '../../../state/plan_providers.dart';
 import '../../../state/study_providers.dart';
 import '../../../study/planner.dart';
-import '../../widgets/notification_bell.dart';
+import '../../widgets/section_switch.dart';
 import '../../widgets/study_widgets.dart';
 import '../study/kit_widgets.dart' show KitEmpty;
 import 'plan_sheet.dart';
@@ -46,12 +46,9 @@ class PlanHomeScreen extends ConsumerWidget {
               bottom: kNavClearance,
               onRefresh: refresh,
               children: [
-                Row(
-                  children: [
-                    Expanded(child: Text('Plan', style: t.headlineSmall?.copyWith(fontSize: 28, fontWeight: FontWeight.w700))),
-                    const NotificationBell(),
-                  ],
-                ),
+                // Plan is a part of the Study tab.
+                const SectionHeader(title: 'Study', sections: studySections),
+                const SizedBox(height: Gap.snug),
                 Text('Your exams, and what to study each day to be ready for them.',
                     style: t.bodyLarge?.copyWith(color: StudyColors.of(context).inkSoft)),
                 const SizedBox(height: Gap.snug),

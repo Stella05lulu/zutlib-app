@@ -51,6 +51,7 @@ on its own, in order:
     supabase/migrations/0019_announcements_saved.sql
     supabase/migrations/0020_kit_sources.sql
     supabase/migrations/0021_dashboards_view_as.sql
+    supabase/migrations/0022_bigger_kits.sql
 
 0011 and 0016 must each be their own run because Postgres will not use a new
 enum value in the same transaction that adds it. If 0001 to 0010 are already

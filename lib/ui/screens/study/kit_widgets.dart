@@ -290,11 +290,13 @@ class _KitBuilderDialogState extends State<_KitBuilderDialog> {
   bool _done = false;
   Timer? _tick;
 
+  // The guide, the flashcards and two sets of questions are written at the
+  // same time, so these describe the work rather than strict steps.
   static const _stages = [
-    'Reading your materials',
-    'Writing the study guide',
-    'Making flashcards',
-    'Writing practice questions',
+    'Reading every source',
+    'Writing the study guide, flashcards and questions together',
+    'Covering every topic in the guide',
+    'Writing exam-style questions, easy to hard',
     'Checking everything',
   ];
 
@@ -349,7 +351,8 @@ class _KitBuilderDialogState extends State<_KitBuilderDialog> {
               const SizedBox(height: Gap.page),
               Text(_done ? 'Your study kit is ready' : stage, style: t.titleMedium, textAlign: TextAlign.center),
               const SizedBox(height: Gap.hair),
-              Text('This uses one of today\'s AI requests and can take up to a minute.',
+              Text('One of today\'s AI requests, however many sources. A big kit takes one to two minutes; '
+                  'you can leave this open and come back.',
                   style: t.bodySmall, textAlign: TextAlign.center),
             ] else ...[
               InlineNotice(_error!, error: true),

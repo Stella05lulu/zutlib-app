@@ -161,6 +161,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/plan', builder: (_, __) => const PlanHomeScreen()),
           GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
           GoRoute(path: '/study', builder: (_, __) => const StudyHomeScreen()),
+          // Parts of the Study and Explore tabs, shown with the tab bar.
+          GoRoute(path: '/progress', builder: (_, __) => const ProgressScreen()),
+          GoRoute(path: '/saved', builder: (_, __) => const SavedScreen()),
           GoRoute(path: '/staff/today', builder: (_, __) => const TodayScreen()),
           GoRoute(path: '/staff/requests', builder: (_, __) => const RequestQueueScreen()),
           GoRoute(path: '/staff/library', builder: (_, __) => const LibraryScreen()),
@@ -174,8 +177,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       GoRoute(path: '/updates', builder: (_, __) => const NotificationsScreen()),
-      GoRoute(path: '/saved', builder: (_, __) => const SavedScreen()),
-      GoRoute(path: '/progress', builder: (_, __) => const ProgressScreen()),
       GoRoute(path: '/welcome', builder: (_, __) => const OnboardingScreen()),
       GoRoute(path: '/profile/edit', builder: (_, __) => const ProfileEditScreen()),
       GoRoute(path: '/admin/reports', builder: (_, __) => const ReportsScreen()),

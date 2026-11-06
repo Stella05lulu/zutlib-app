@@ -303,9 +303,12 @@ select pg_temp.t('Q6', 'Adding to student B''s kit', 'error',
 select pg_temp.t('Q7', 'A link that is not a YouTube watch link', 'error',
   $q$insert into public.study_note_sources (note_id, kind, label, youtube_url) values ('00000000-0000-4000-8000-00000000a1f1', 'youtube', 'v', 'https://evil.example/v')$q$);
 insert into public.study_note_sources (note_id, kind, label, body) values
-  ('00000000-0000-4000-8000-00000000a1f1', 'text', 'Three', '3'), ('00000000-0000-4000-8000-00000000a1f1', 'text', 'Four', '4'), ('00000000-0000-4000-8000-00000000a1f1', 'text', 'Five', '5');
-select pg_temp.t('Q8', 'A sixth source', 'error',
-  $q$insert into public.study_note_sources (note_id, kind, label, body) values ('00000000-0000-4000-8000-00000000a1f1', 'text', 'Six', '6')$q$);
+  ('00000000-0000-4000-8000-00000000a1f1', 'text', 'Three', '3'), ('00000000-0000-4000-8000-00000000a1f1', 'text', 'Four', '4'), ('00000000-0000-4000-8000-00000000a1f1', 'text', 'Five', '5'),
+  ('00000000-0000-4000-8000-00000000a1f1', 'text', 'Six', '6'), ('00000000-0000-4000-8000-00000000a1f1', 'text', 'Seven', '7'), ('00000000-0000-4000-8000-00000000a1f1', 'text', 'Eight', '8'),
+  ('00000000-0000-4000-8000-00000000a1f1', 'text', 'Nine', '9'), ('00000000-0000-4000-8000-00000000a1f1', 'text', 'Ten', '10');
+-- Since 0022 a kit holds up to 10 sources.
+select pg_temp.t('Q8', 'An eleventh source', 'error',
+  $q$insert into public.study_note_sources (note_id, kind, label, body) values ('00000000-0000-4000-8000-00000000a1f1', 'text', 'Eleven', '11')$q$);
 reset role;
 select pg_temp.as_user('00000000-0000-4000-8000-00000000a1d1');
 set role authenticated;
@@ -321,7 +324,7 @@ set role authenticated;
 select pg_temp.t('Q12', 'Even an admin cannot read a student''s sources', 'rows=0',
   $q$select count(*) from public.study_note_sources where note_id = '00000000-0000-4000-8000-00000000a1f1'$q$);
 reset role;
-select pg_temp.t('Q13', '+ AI help reads every source', 'value=5',
+select pg_temp.t('Q13', '+ AI help reads every source', 'value=10',
   $q$select jsonb_array_length(public.study_ai_prepare('00000000-0000-4000-8000-00000000a1d0', '00000000-0000-4000-8000-00000000a1f1', 'kit') -> 'sources')::text$q$);
 select pg_temp.t('Q14', 'AI help for B cannot read A''s kit', 'value=not_found',
   $q$select public.study_ai_prepare('00000000-0000-4000-8000-00000000a1d1', '00000000-0000-4000-8000-00000000a1f1', 'kit') ->> 'error'$q$);
