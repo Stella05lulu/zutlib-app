@@ -26,19 +26,44 @@ class PlanTaskRow extends ConsumerStatefulWidget {
 class _PlanTaskRowState extends ConsumerState<PlanTaskRow> {
   bool _busy = false;
 
+  /// What the box shows while a tap is being saved, so it ticks at once
+  /// instead of waiting for the database and the plan to reload.
+  bool? _pending;
+
+  @override
+  void didUpdateWidget(covariant PlanTaskRow old) {
+    super.didUpdateWidget(old);
+    // The reloaded plan now agrees with the tap: stop overriding it.
+    if (_pending != null && !_busy && widget.view.done(widget.task) == _pending) {
+      _pending = null;
+    }
+  }
+
   Future<void> _toggle(bool done) async {
     if (widget.view.isDemo) {
       ref.read(planDemoProvider.notifier).update((d) => d?.toggle(widget.task.key));
       return;
     }
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _pending = !done;
+    });
     try {
       await planRepo.setCheck(widget.view.plan.id, dateOnly(DateTime.now()), widget.task.key, !done);
       ref.invalidate(todayChecksProvider);
     } on Failure catch (f) {
-      if (mounted) showMessage(context, f.message, isError: true);
+      // Not saved: put the box back the way it was.
+      if (mounted) {
+        setState(() => _pending = null);
+        showMessage(context, f.message, isError: true);
+      }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          if (widget.view.done(widget.task) == _pending) _pending = null;
+        });
+      }
     }
   }
 
@@ -47,8 +72,9 @@ class _PlanTaskRowState extends ConsumerState<PlanTaskRow> {
     final c = StudyColors.of(context);
     final t = Theme.of(context).textTheme;
     final task = widget.task;
-    final done = widget.view.done(task);
-    final autoDone = done && !widget.view.ticked.contains(task.key);
+    final saved = widget.view.done(task);
+    final done = _pending ?? saved;
+    final autoDone = saved && !widget.view.ticked.contains(task.key);
     return InkWell(
       onTap: () async {
         await context.push('/study/note/${widget.view.plan.noteId}?tab=${task.kind.tab}');
@@ -63,7 +89,9 @@ class _PlanTaskRowState extends ConsumerState<PlanTaskRow> {
             Checkbox(
               value: done,
               // A task the app ticked from your study stays ticked.
-              onChanged: _busy || autoDone ? null : (_) => _toggle(done),
+              onChanged: autoDone ? null : (_) {
+                if (!_busy) _toggle(done);
+              },
             ),
             const SizedBox(width: Gap.hair),
             Expanded(
