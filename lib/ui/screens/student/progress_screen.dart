@@ -112,7 +112,9 @@ class _Body extends StatelessWidget {
         : scoreSeries(data.attempts, noteId: pick);
     final shown = points.length > 12 ? points.sublist(points.length - 12) : points;
     final avg = points.isEmpty ? 0.0 : points.map((p) => p.percent).reduce((a, b) => a + b) / points.length;
-    final change = recentChange(points);
+    final latest = points.isEmpty ? null : points.last.percent;
+    final before = points.length < 2 ? null : points[points.length - 2].percent;
+    final pct = (double v) => '${(v * 100).round()}%';
 
     final scoped = data.attempts.where((a) => pick == null ||
         (byCourse ? normaliseCode(a.courseCode) == pick : a.noteId == pick));
@@ -153,29 +155,46 @@ class _Body extends StatelessWidget {
             ]),
           ),
         const SizedBox(height: Gap.page),
+        // Three plain figures: how many tests, the average, and the latest
+        // compared with the one before it.
         StatGrid(children: [
-          StatTile(value: '${points.length}', label: points.length == 1 ? 'Attempt' : 'Attempts'),
-          StatTile(value: '${(avg * 100).round()}%', label: 'Average score'),
+          StatTile(value: '${points.length}', label: points.length == 1 ? 'Test taken' : 'Tests taken'),
+          StatTile(value: pct(avg), label: 'Average score'),
           StatTile(
-            value: change == null ? 'Not yet' : '${change >= 0 ? '+' : ''}${(change * 100).round()}%',
-            label: 'Last 3 against the 3 before',
-            detail: change == null ? 'Needs 6 attempts' : (change >= 0 ? 'Going up' : 'Going down'),
-            alert: change != null && change < 0,
+            value: latest == null ? '–' : pct(latest),
+            label: 'Latest score',
+            detail: before == null
+                ? 'Take another test to compare'
+                : latest! == before
+                    ? 'Same as the test before'
+                    : '${latest > before ? 'Up' : 'Down'} ${((latest - before).abs() * 100).round()}% on the test before',
+            alert: before != null && latest! < before,
           ),
         ]),
-        const ShelfHeading('Score over time'),
+        const ShelfHeading('Your test scores'),
+        Text('Each bar is one test or quiz, oldest on the left. Taller is better: 100% means every answer was right.',
+            style: t.bodySmall?.copyWith(color: c.inkSoft)),
+        const SizedBox(height: Gap.tight),
         if (shown.isEmpty)
-          const StudyEmptyState('No attempts for this choice yet.', compact: true)
+          const StudyEmptyState('No tests for this choice yet.', compact: true)
         else
           Panel(
-            child: BarChart(
-              semanticLabel: 'Scores of your last ${shown.length} attempts',
-              maxValue: 100,
-              data: [
-                for (final p in shown)
-                  BarDatum(DateFormat('d/M').format(p.at), p.percent * 100, valueText: '${(p.percent * 100).round()}'),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              BarChart(
+                semanticLabel: 'Scores of your last ${shown.length} tests',
+                maxValue: 100,
+                barWidth: 40,
+                data: [
+                  for (final p in shown)
+                    BarDatum(DateFormat('d MMM').format(p.at), p.percent * 100, valueText: pct(p.percent)),
+                ],
+              ),
+              if (shown.length == 1) ...[
+                const SizedBox(height: Gap.tight),
+                Text('Take more tests to see how your scores change over time.',
+                    style: t.bodySmall?.copyWith(color: c.inkFaint)),
               ],
-            ),
+            ]),
           ),
         const ShelfHeading('Revise next'),
         if (revise.isEmpty)

@@ -14,11 +14,15 @@ class BarDatum {
 /// Vertical bars on a thin baseline, flat, in the accent colour. Each bar
 /// shows its value above it, so nothing relies on reading the height alone.
 class BarChart extends StatelessWidget {
-  const BarChart({super.key, required this.data, this.maxValue, this.height = 160, this.semanticLabel});
+  const BarChart({super.key, required this.data, this.maxValue, this.height = 160, this.semanticLabel, this.barWidth});
   final List<BarDatum> data;
   final double? maxValue;
   final double height;
   final String? semanticLabel;
+
+  /// When set, each bar is this wide and the bars start at the left, so one
+  /// or two bars do not stretch across the whole chart.
+  final double? barWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -35,8 +39,8 @@ class BarChart extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             for (final d in data)
-              Expanded(
-                child: Padding(
+              _slot(
+                Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 3),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.end,
@@ -68,6 +72,9 @@ class BarChart extends StatelessWidget {
       ),
     );
   }
+
+  Widget _slot(Widget child) =>
+      barWidth == null ? Expanded(child: child) : SizedBox(width: barWidth! + 6, child: child);
 }
 
 /// A labelled horizontal bar with its count, for breakdowns.
