@@ -44,6 +44,9 @@ class PlanHomeScreen extends ConsumerWidget {
           body: SafeArea(
             bottom: false,
             child: StudyPage(
+            // Same width as Kits, so switching between Kits, Plan and
+            // Progress does not make the page jump.
+            maxWidth: 1080,
               bottom: kNavClearance,
               onRefresh: refresh,
               children: [
