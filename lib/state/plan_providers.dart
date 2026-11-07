@@ -6,6 +6,7 @@ import '../models/plan.dart';
 import '../models/profile.dart';
 import '../models/resource.dart';
 import '../models/study.dart';
+import '../study/plan_demo.dart';
 import '../study/planner.dart';
 import '../study/recommend.dart';
 import 'providers.dart';
@@ -15,6 +16,13 @@ const planRepo = PlanRepository();
 const accountRepo = AccountRepository();
 
 DateTime get _today => dateOnly(DateTime.now());
+
+/// The running demo, if any. Held in memory only, so it survives moving
+/// around the app but never reaches the database. Signing out ends it.
+final planDemoProvider = StateProvider<PlanDemo?>((ref) {
+  ref.watch(userIdProvider);
+  return null;
+});
 
 final plansProvider = FutureProvider.autoDispose<List<StudyPlan>>((ref) {
   ref.watch(userIdProvider);
@@ -51,6 +59,7 @@ class PlanView {
     required this.ticked,
     required this.days,
     required this.health,
+    this.demoDate,
   });
 
   final StudyPlan plan;
@@ -61,12 +70,32 @@ class PlanView {
   final List<PlanDay> days;
   final PlanHealth health;
 
+  /// The pretend today, when this view is a demo.
+  final DateTime? demoDate;
+
+  bool get isDemo => demoDate != null;
+
+  /// The date this view treats as today.
+  DateTime get now => demoDate ?? _today;
+
+  /// This plan as [demo] shows it. The kit's content stays real.
+  PlanView withDemo(PlanDemo demo) => PlanView(
+        plan: plan,
+        kit: kit,
+        progress: demo.progress,
+        activity: demo.past,
+        ticked: demo.ticked,
+        days: demo.days,
+        health: demo.health,
+        demoDate: demo.date,
+      );
+
   Note get note => kit.note;
 
   /// Today's tasks, when today is a study day before the exam.
-  PlanDay? get today => days.isNotEmpty && days.first.date == _today && days.first.isStudyDay ? days.first : null;
+  PlanDay? get today => days.isNotEmpty && days.first.date == now && days.first.isStudyDay ? days.first : null;
 
-  DayActivity get todayActivity => activity[_today] ?? DayActivity.none;
+  DayActivity get todayActivity => activity[now] ?? DayActivity.none;
 
   bool done(PlanTask t) => taskDone(t, todayActivity, progress, ticked);
 

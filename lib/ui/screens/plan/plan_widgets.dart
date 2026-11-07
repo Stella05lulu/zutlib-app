@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/failure.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../state/plan_providers.dart';
+import '../../../study/plan_demo.dart';
 import '../../../study/planner.dart';
 import '../../widgets/common.dart' show showMessage;
 
@@ -25,6 +27,10 @@ class _PlanTaskRowState extends ConsumerState<PlanTaskRow> {
   bool _busy = false;
 
   Future<void> _toggle(bool done) async {
+    if (widget.view.isDemo) {
+      ref.read(planDemoProvider.notifier).update((d) => d?.toggle(widget.task.key));
+      return;
+    }
     setState(() => _busy = true);
     try {
       await planRepo.setCheck(widget.view.plan.id, dateOnly(DateTime.now()), widget.task.key, !done);
@@ -87,6 +93,71 @@ class _PlanTaskRowState extends ConsumerState<PlanTaskRow> {
               child: Text('${task.minutes} min', style: Mono.of(context, size: 12, color: c.inkFaint)),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The controls for a running demo: move through the plan a day or a phase
+/// at a time, miss a day to show catch-up work, go back, restart or leave.
+class PlanDemoBar extends ConsumerWidget {
+  const PlanDemoBar({super.key, required this.demo});
+  final PlanDemo demo;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = StudyColors.of(context);
+    final t = Theme.of(context).textTheme;
+    void set(PlanDemo? next) => ref.read(planDemoProvider.notifier).state = next;
+    final next = demo.nextPhase;
+
+    return Material(
+      color: c.accentWash,
+      child: SafeArea(
+        top: false,
+        child: Container(
+          decoration: BoxDecoration(border: Border(top: BorderSide(color: c.accent))),
+          padding: const EdgeInsets.fromLTRB(Gap.page, Gap.tight, Gap.tight, Gap.snug),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Icon(Icons.slideshow_outlined, size: 18, color: c.accent),
+                const SizedBox(width: Gap.tight),
+                Expanded(
+                  child: Text(
+                    demo.isFinished
+                        ? 'Demo mode  /  Exam day'
+                        : 'Demo mode  /  Day ${demo.dayNumber} of ${demo.totalDays}  /  '
+                            '${DateFormat('EEE d MMM').format(demo.date)}',
+                    style: t.titleSmall?.copyWith(color: c.ink),
+                  ),
+                ),
+                TextButton(onPressed: () => set(null), child: const Text('Exit demo')),
+              ]),
+              Text('Nothing here is saved. Your real plan and progress stay as they are.', style: t.bodySmall),
+              const SizedBox(height: Gap.tight),
+              Wrap(spacing: Gap.tight, runSpacing: Gap.tight, children: [
+                if (!demo.isFinished) ...[
+                  FilledButton(
+                    onPressed: () => set(demo.completeDay()),
+                    child: Text(demo.allTicked ? 'Next day' : 'Complete day'),
+                  ),
+                  if (!demo.allTicked)
+                    OutlinedButton(onPressed: () => set(demo.missDay()), child: const Text('Miss this day')),
+                  OutlinedButton(
+                    onPressed: () => set(demo.jump()),
+                    child: Text(next == null ? 'Jump to exam day' : 'Jump to ${next.label}'),
+                  ),
+                ],
+                if (demo.previous != null)
+                  TextButton(onPressed: () => set(demo.back()), child: const Text('Back')),
+                TextButton(onPressed: () => set(demo.restart()), child: const Text('Restart')),
+              ]),
+            ],
+          ),
         ),
       ),
     );
