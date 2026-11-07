@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/failure.dart';
+import '../../../core/router.dart' show openLink;
 import '../../../core/theme.dart';
 import '../../../models/app_notification.dart';
 import '../../../data/governance_repository.dart' show Announcement;
@@ -39,7 +39,7 @@ class NotificationsScreen extends ConsumerWidget {
     }
     final link = n.link;
     if (link != null && link.startsWith('/') && context.mounted) {
-      await context.push(link);
+      await openLink(context, link);
     }
   }
 

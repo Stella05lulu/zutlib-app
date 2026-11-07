@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -120,7 +121,11 @@ class AppShell extends ConsumerWidget {
     // tabs it goes to the home page for the role (Overview, Today or Home),
     // and only leaves the app from there.
     final home = ref.watch(homeRouteProvider);
-    Widget withBack(Widget scaffold) => PopScope(
+    // On the web the browser's own back button moves through the history,
+    // and the router follows the address bar. Catching back there as well
+    // made two navigations at once (a crash with a duplicate page key), so
+    // this applies to the phone app only.
+    Widget withBack(Widget scaffold) => kIsWeb ? scaffold : PopScope(
           canPop: location == home,
           onPopInvokedWithResult: (didPop, _) {
             if (!didPop) context.go(home);

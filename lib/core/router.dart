@@ -73,6 +73,26 @@ bool _studentOnly(String path) =>
 /// person chosen a password, is the account approved, and does their role
 /// cover this screen? The database enforces every one of these again; the
 /// app only decides which screen to show.
+/// The pages shown inside the tab bar (the shell). Opening one of these
+/// with push() from a full-screen page put a second copy of the shell on
+/// the stack, which crashed with a duplicate key; they must be opened with
+/// go(). See [openLink].
+const shellRoutePaths = {
+  '/home', '/browse', '/borrowing', '/plan', '/profile', '/study', '/progress', '/saved',
+  '/staff/today', '/staff/requests', '/staff/library',
+  '/admin', '/admin/users', '/admin/invitations', '/admin/announcements', '/admin/audit', '/admin/settings',
+};
+
+/// Opens an in-app link: tab pages replace the current page, everything
+/// else opens on top so back returns here.
+Future<void> openLink(BuildContext context, String link) async {
+  if (shellRoutePaths.contains(Uri.parse(link).path)) {
+    context.go(link);
+  } else {
+    await context.push(link);
+  }
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
   final shellKey = GlobalKey<NavigatorState>();
 
