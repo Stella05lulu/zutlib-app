@@ -16,16 +16,16 @@ class MyBorrowingScreen extends ConsumerWidget {
   Future<void> _cancel(BuildContext context, WidgetRef ref, BorrowRequest r) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Cancel this request?'),
         content: Text('Your request for "${r.resourceTitle}" will be withdrawn. '
             'You can apply again later.'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () => Navigator.pop(dialogContext, false),
               child: const Text('Keep it')),
           FilledButton(
-              onPressed: () => Navigator.pop(context, true),
+              onPressed: () => Navigator.pop(dialogContext, true),
               child: const Text('Cancel request')),
         ],
       ),
