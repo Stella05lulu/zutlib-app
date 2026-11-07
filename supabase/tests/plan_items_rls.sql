@@ -99,7 +99,7 @@ commit;
 update public.profiles set role = 'admin', status = 'active' where id = '00000000-0000-4000-8000-00000000a1b0';
 update public.profiles set role = 'librarian', status = 'active' where id = '00000000-0000-4000-8000-00000000a1c0';
 update public.profiles set status = 'active' where id in ('00000000-0000-4000-8000-00000000a1d0', '00000000-0000-4000-8000-00000000a1d1', '00000000-0000-4000-8000-00000000a1e0');
-insert into auth.sessions (user_id) values ('00000000-0000-4000-8000-00000000a1d0'), ('00000000-0000-4000-8000-00000000a1d0');
+insert into auth.sessions (id, user_id) values (gen_random_uuid(), '00000000-0000-4000-8000-00000000a1d0'), (gen_random_uuid(), '00000000-0000-4000-8000-00000000a1d0');
 insert into public.resources (id, title, type, department, author, is_physical, total_copies, available_copies, is_sample)
 values ('00000000-0000-4000-8000-00000000a1f3', 'ZLI Sample book', 'book', 'ICT', 'A. Writer', true, 5, 5, true);
 insert into public.study_notes (id, user_id, title, body) values
