@@ -47,6 +47,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
           // Signed in for one purpose only: choosing a new password.
           ref.read(passwordRecoveryProvider.notifier).state = true;
         }
+        // The session exists now, but the auth event that updates the user
+        // id has not arrived. Without this the profile reads as empty and
+        // the person is signed out again below.
+        ref.invalidate(userIdProvider);
         ref.invalidate(profileProvider);
       } on Failure catch (f) {
         // Reloading the page after accepting reuses the old link; if a

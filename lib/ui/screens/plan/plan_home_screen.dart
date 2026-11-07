@@ -99,13 +99,13 @@ class PlanHomeScreen extends ConsumerWidget {
     if (kits.isEmpty) {
       final go = await showDialog<bool>(
         context: context,
-        builder: (_) => AlertDialog(
+        builder: (dialogContext) => AlertDialog(
           title: const Text('Make a study kit first'),
           content: const Text('A plan is built from a study kit: its guide, flashcards and questions. '
               'Make a kit from your notes or a past paper, then add the exam.'),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Not now')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Go to Study')),
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Not now')),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Go to Study')),
           ],
         ),
       );

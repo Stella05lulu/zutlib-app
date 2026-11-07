@@ -60,7 +60,7 @@ class _RequestDetailScreenState extends ConsumerState<RequestDetailScreen> {
     final controller = TextEditingController();
     final reason = await showDialog<String>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Reject this request'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -80,10 +80,10 @@ class _RequestDetailScreenState extends ConsumerState<RequestDetailScreen> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Back')),
           FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
             child: const Text('Reject request'),
           ),
         ],
