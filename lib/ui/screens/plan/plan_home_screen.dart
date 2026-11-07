@@ -25,6 +25,7 @@ class PlanHomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final views = ref.watch(upcomingPlansProvider);
+    final demo = ref.watch(planDemoProvider);
 
     Future<void> refresh() async {
       refreshPlans(ref);
@@ -54,6 +55,16 @@ class PlanHomeScreen extends ConsumerWidget {
                 const SizedBox(height: Gap.snug),
                 const StreakLine(),
                 const SizedBox(height: Gap.page),
+                if (demo != null) ...[
+                  InlineNotice(
+                    'Demo mode is running. This page shows your real plans.',
+                    action: TextButton(
+                      onPressed: () => context.push('/plan/${demo.planId}'),
+                      child: const Text('Back to the demo'),
+                    ),
+                  ),
+                  const SizedBox(height: Gap.page),
+                ],
                 StudyAsync<List<PlanView>>(
                   value: views,
                   onRetry: () => ref.invalidate(upcomingPlansProvider),

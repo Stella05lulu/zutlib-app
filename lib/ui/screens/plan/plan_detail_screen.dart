@@ -9,6 +9,7 @@ import '../../../core/failure.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/reminders.dart';
 import '../../../state/plan_providers.dart';
+import '../../../study/plan_demo.dart';
 import '../../../study/planner.dart';
 import '../../widgets/common.dart' show showMessage;
 import '../../widgets/study_widgets.dart';
@@ -35,10 +36,22 @@ class PlanDetailScreen extends ConsumerWidget {
     }
   }
 
+  void _startDemo(BuildContext context, WidgetRef ref, PlanView v) {
+    final settings = v.plan.settings;
+    if (!PlanDemo.canRun(settings)) {
+      showMessage(context, 'This plan has no study days before the exam, so there is nothing to walk through.',
+          isError: true);
+      return;
+    }
+    ref.read(planDemoProvider.notifier).state = PlanDemo.begin(v.plan.id, settings, v.progress);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(planViewProvider(planId));
     final v = async.valueOrNull;
+    final running = ref.watch(planDemoProvider);
+    final demo = running?.planId == planId ? running : null;
 
     return StudyScope(
       child: Builder(builder: (context) {
@@ -57,16 +70,21 @@ class PlanDetailScreen extends ConsumerWidget {
                         unawaited(context.push('/study/note/${v.plan.noteId}'));
                       case 'delete':
                         await _delete(context, ref, v);
+                      case 'demo':
+                        _startDemo(context, ref, v);
                     }
                   },
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(value: 'edit', child: Text('Change date or days')),
-                    PopupMenuItem(value: 'kit', child: Text('Open the study kit')),
-                    PopupMenuItem(value: 'delete', child: Text('Delete plan')),
+                  // The date and the plan stay as they are during a demo.
+                  itemBuilder: (_) => [
+                    if (demo == null) const PopupMenuItem(value: 'edit', child: Text('Change date or days')),
+                    const PopupMenuItem(value: 'kit', child: Text('Open the study kit')),
+                    if (demo == null) const PopupMenuItem(value: 'demo', child: Text('Demo mode')),
+                    if (demo == null) const PopupMenuItem(value: 'delete', child: Text('Delete plan')),
                   ],
                 ),
             ],
           ),
+          bottomNavigationBar: demo == null ? null : PlanDemoBar(demo: demo),
           body: StudyPage(
             onRefresh: () async {
               refreshPlans(ref);
@@ -83,7 +101,7 @@ class PlanDetailScreen extends ConsumerWidget {
                 skeleton: const RowsSkeleton(rows: 5),
                 isEmpty: (x) => x == null,
                 empty: const StudyEmptyState('This plan no longer exists.'),
-                data: (x) => _Body(view: x!),
+                data: (x) => _Body(view: demo == null ? x! : x!.withDemo(demo)),
               ),
             ],
           ),
@@ -117,7 +135,7 @@ class _Body extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(examCountdown(plan.examDate, DateTime.now()), style: t.headlineSmall),
+                  Text(examCountdown(plan.examDate, view.now), style: t.headlineSmall),
                   Text(DateFormat('EEEE d MMMM yyyy').format(plan.examDate), style: t.bodyMedium),
                 ],
               ),
@@ -154,11 +172,13 @@ class _Body extends StatelessWidget {
           const StudyEmptyState('Nothing to do for this kit today.', compact: true)
         else
           RowGroup(children: [for (final task in today.tasks) PlanTaskRow(view: view, task: task)]),
-        const SectionLabel('Coming up'),
-        if (upcoming.isEmpty)
-          const StudyEmptyState('The exam is tomorrow. Rest well.', compact: true)
-        else
-          RowGroup(children: [for (final d in upcoming) _DayRow(day: d)]),
+        if (view.days.isNotEmpty) ...[
+          const SectionLabel('Coming up'),
+          if (upcoming.isEmpty)
+            const StudyEmptyState('The exam is tomorrow. Rest well.', compact: true)
+          else
+            RowGroup(children: [for (final d in upcoming) _DayRow(day: d)]),
+        ],
         const SizedBox(height: Gap.page),
         OutlinedButton.icon(
           onPressed: () => context.push('/study/note/${plan.noteId}'),
